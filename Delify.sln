@@ -9,6 +9,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Delify.Shared", "src\Delify
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Delify.Modules.Identity", "src\Delify.Modules.Identity\Delify.Modules.Identity.csproj", "{68CE6CDE-0EB4-4E51-A82A-5C1080824B32}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Delify.Modules.Catalog", "src\Delify.Modules.Catalog\Delify.Modules.Catalog.csproj", "{CFC7AE96-8349-4634-8E80-FBA5D61527AD}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -43,6 +45,18 @@ Global
 		{68CE6CDE-0EB4-4E51-A82A-5C1080824B32}.Release|x64.Build.0 = Release|Any CPU
 		{68CE6CDE-0EB4-4E51-A82A-5C1080824B32}.Release|x86.ActiveCfg = Release|Any CPU
 		{68CE6CDE-0EB4-4E51-A82A-5C1080824B32}.Release|x86.Build.0 = Release|Any CPU
+		{CFC7AE96-8349-4634-8E80-FBA5D61527AD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{CFC7AE96-8349-4634-8E80-FBA5D61527AD}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{CFC7AE96-8349-4634-8E80-FBA5D61527AD}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{CFC7AE96-8349-4634-8E80-FBA5D61527AD}.Debug|x64.Build.0 = Debug|Any CPU
+		{CFC7AE96-8349-4634-8E80-FBA5D61527AD}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{CFC7AE96-8349-4634-8E80-FBA5D61527AD}.Debug|x86.Build.0 = Debug|Any CPU
+		{CFC7AE96-8349-4634-8E80-FBA5D61527AD}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{CFC7AE96-8349-4634-8E80-FBA5D61527AD}.Release|Any CPU.Build.0 = Release|Any CPU
+		{CFC7AE96-8349-4634-8E80-FBA5D61527AD}.Release|x64.ActiveCfg = Release|Any CPU
+		{CFC7AE96-8349-4634-8E80-FBA5D61527AD}.Release|x64.Build.0 = Release|Any CPU
+		{CFC7AE96-8349-4634-8E80-FBA5D61527AD}.Release|x86.ActiveCfg = Release|Any CPU
+		{CFC7AE96-8349-4634-8E80-FBA5D61527AD}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -50,5 +64,6 @@ Global
 	GlobalSection(NestedProjects) = preSolution
 		{75372972-C34C-4ED8-85B6-F6B05D43AB5E} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{68CE6CDE-0EB4-4E51-A82A-5C1080824B32} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
+		{CFC7AE96-8349-4634-8E80-FBA5D61527AD} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 	EndGlobalSection
 EndGlobal

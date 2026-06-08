@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <InvariantGlobalization>false</InvariantGlobalization>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.*" />
+    <PackageReference Include="Scalar.AspNetCore" Version="2.*" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="9.*" PrivateAssets="all" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Delify.Shared\Delify.Shared.csproj" />
+    <ProjectReference Include="..\Delify.Modules.Identity\Delify.Modules.Identity.csproj" />
+    <ProjectReference Include="..\Delify.Modules.Catalog\Delify.Modules.Catalog.csproj" />
+    <ProjectReference Include="..\Delify.Modules.Orders\Delify.Modules.Orders.csproj" />
+    <ProjectReference Include="..\Delify.Modules.Payments\Delify.Modules.Payments.csproj" />
+    <ProjectReference Include="..\Delify.Modules.Delivery\Delify.Modules.Delivery.csproj" />
+  </ItemGroup>
+</Project>

@@ -33,6 +33,28 @@ internal static class OrderEndpoints
         })
         .WithName("GetOrdersByEstablishment");
 
+        group.MapPatch("/{orderId:guid}/accept",
+            (Guid orderId, IMediator mediator) => HandleStatusUpdate(orderId, OrderAction.Accept, mediator))
+            .WithName("AcceptOrder");
+
+        group.MapPatch("/{orderId:guid}/start-delivery",
+            (Guid orderId, IMediator mediator) => HandleStatusUpdate(orderId, OrderAction.StartDelivery, mediator))
+            .WithName("StartOrderDelivery");
+
+        group.MapPatch("/{orderId:guid}/complete",
+            (Guid orderId, IMediator mediator) => HandleStatusUpdate(orderId, OrderAction.Complete, mediator))
+            .WithName("CompleteOrder");
+
+        group.MapPatch("/{orderId:guid}/cancel",
+            (Guid orderId, IMediator mediator) => HandleStatusUpdate(orderId, OrderAction.Cancel, mediator))
+            .WithName("CancelOrder");
+
         return app;
+    }
+
+    private static async Task<IResult> HandleStatusUpdate(Guid orderId, OrderAction action, IMediator mediator)
+    {
+        var result = await mediator.Send(new UpdateOrderStatusCommand(orderId, action));
+        return result.IsSuccess ? Results.NoContent() : Results.BadRequest(result.Error);
     }
 }

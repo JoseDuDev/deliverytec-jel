@@ -1,7 +1,9 @@
 using Delify.Modules.Orders.Domain;
 using Delify.Modules.Orders.Infrastructure;
 using Delify.Shared.Abstractions;
+using Delify.Shared.IntegrationEvents;
 using Delify.Shared.Result;
+using MassTransit;
 using MediatR;
 
 namespace Delify.Modules.Orders.Application.Commands;
@@ -11,11 +13,14 @@ public record OrderItemDto(Guid ProductId, string ProductName, int Quantity, dec
 public record CreateOrderCommand(
     Guid EstablishmentId,
     List<OrderItemDto> Items,
+    string CustomerCpf,
+    string CustomerName,
     string? CustomerNote = null) : IRequest<Result<Guid>>;
 
 internal sealed class CreateOrderCommandHandler(
     OrdersDbContext db,
-    ITenantContext tenant) : IRequestHandler<CreateOrderCommand, Result<Guid>>
+    ITenantContext tenant,
+    IBus bus) : IRequestHandler<CreateOrderCommand, Result<Guid>>
 {
     public async Task<Result<Guid>> Handle(CreateOrderCommand request, CancellationToken cancellationToken)
     {
@@ -31,6 +36,10 @@ internal sealed class CreateOrderCommandHandler(
 
         db.Orders.Add(order);
         await db.SaveChangesAsync(cancellationToken);
+
+        await bus.Publish(new OrderCreatedIntegrationEvent(
+            order.Id, order.TenantId, order.Total,
+            request.CustomerCpf, request.CustomerName), cancellationToken);
 
         return Result.Success(order.Id);
     }

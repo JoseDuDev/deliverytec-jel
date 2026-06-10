@@ -9,7 +9,7 @@ services:
       POSTGRES_PASSWORD: delify
       POSTGRES_DB: delify
     ports:
-      - "5432:5432"
+      - "5435:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -22,7 +22,7 @@ services:
     image: redis:7-alpine
     container_name: delify-redis
     ports:
-      - "6379:6379"
+      - "6382:6379"
     command: redis-server --appendonly yes
     volumes:
       - redis_data:/data
@@ -39,8 +39,8 @@ services:
       RABBITMQ_DEFAULT_USER: delify
       RABBITMQ_DEFAULT_PASS: delify
     ports:
-      - "5672:5672"
-      - "15672:15672"
+      - "5674:5672"
+      - "15674:15672"
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
     healthcheck:

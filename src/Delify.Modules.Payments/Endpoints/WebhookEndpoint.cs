@@ -1,5 +1,7 @@
 using Delify.Modules.Payments.Abstractions;
 using Delify.Modules.Payments.Infrastructure;
+using Delify.Shared.IntegrationEvents;
+using MassTransit;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
@@ -14,7 +16,8 @@ internal static class WebhookEndpoint
         app.MapPost("/api/webhooks/asaas", async (
             HttpRequest req,
             IPaymentGateway gateway,
-            PaymentsDbContext db) =>
+            PaymentsDbContext db,
+            IBus bus) =>
         {
             var body = await new StreamReader(req.Body).ReadToEndAsync();
             var signature = req.Headers["asaas-access-token"].ToString();
@@ -30,6 +33,7 @@ internal static class WebhookEndpoint
             {
                 payment.ConfirmPayment(result.GatewayPaymentId);
                 await db.SaveChangesAsync();
+                await bus.Publish(new PaymentConfirmedIntegrationEvent(payment.OrderId, payment.TenantId));
             }
 
             return Results.Ok();

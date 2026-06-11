@@ -1,3 +1,4 @@
+using Delify.Modules.Bff;
 using Delify.Modules.Catalog;
 using Delify.Modules.Delivery;
 using Delify.Modules.Identity;
@@ -18,7 +19,8 @@ var modules = new List<IModule>
     new CatalogModule(),
     new OrdersModule(),
     new PaymentsModule(),
-    new DeliveryModule()
+    new DeliveryModule(),
+    new BffModule()          // BFF por último para override do IOrderTrackingNotifier
 };
 
 foreach (var module in modules)
@@ -45,6 +47,12 @@ builder.Services.AddMassTransit(x =>
     });
 });
 
+builder.Services.AddCors(opts =>
+    opts.AddDefaultPolicy(policy =>
+        policy.WithOrigins("http://localhost:3000")
+              .AllowAnyHeader()
+              .AllowAnyMethod()));
+
 builder.Services.AddOpenApi();
 builder.Services.AddOutputCache();
 builder.Services.AddProblemDetails();
@@ -57,6 +65,7 @@ if (app.Environment.IsDevelopment())
     app.MapScalarApiReference();
 }
 
+app.UseCors();
 app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();

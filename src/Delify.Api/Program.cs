@@ -9,6 +9,9 @@ using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Registra implementação nula por padrão; BffModule sobrescreve com a real
+builder.Services.AddSingleton<IOrderTrackingNotifier, NullOrderTrackingNotifier>();
+
 var modules = new List<IModule>
 {
     new IdentityModule(),

@@ -1,4 +1,6 @@
+using Delify.Modules.Orders.Domain;
 using Delify.Modules.Orders.Infrastructure;
+using Delify.Shared.Abstractions;
 using Delify.Shared.Result;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -9,7 +11,9 @@ public enum OrderAction { Accept, StartDelivery, Complete, Cancel }
 
 public record UpdateOrderStatusCommand(Guid OrderId, OrderAction Action) : IRequest<Result>;
 
-internal sealed class UpdateOrderStatusCommandHandler(OrdersDbContext db)
+internal sealed class UpdateOrderStatusCommandHandler(
+    OrdersDbContext db,
+    IOrderTrackingNotifier trackingNotifier)
     : IRequestHandler<UpdateOrderStatusCommand, Result>
 {
     public async Task<Result> Handle(UpdateOrderStatusCommand request, CancellationToken cancellationToken)
@@ -37,6 +41,18 @@ internal sealed class UpdateOrderStatusCommandHandler(OrdersDbContext db)
         }
 
         await db.SaveChangesAsync(cancellationToken);
+
+        var (statusKey, label) = order.Status switch
+        {
+            OrderStatus.InPreparation => ("Preparing", "Preparando seu pedido"),
+            OrderStatus.InDelivery    => ("OutForDelivery", "Saiu para entrega"),
+            OrderStatus.Delivered     => ("Delivered", "Pedido entregue!"),
+            OrderStatus.Cancelled     => ("Cancelled", "Pedido cancelado"),
+            _                         => (order.Status.ToString(), order.Status.ToString())
+        };
+
+        trackingNotifier.Notify(order.Id, statusKey, label);
+
         return Result.Success();
     }
 }

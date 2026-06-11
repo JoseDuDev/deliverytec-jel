@@ -1,11 +1,14 @@
 using Delify.Modules.Orders.Infrastructure;
+using Delify.Shared.Abstractions;
 using Delify.Shared.IntegrationEvents;
 using MassTransit;
 using Microsoft.EntityFrameworkCore;
 
 namespace Delify.Modules.Orders.Application.Consumers;
 
-public sealed class PaymentConfirmedConsumer(OrdersDbContext db) : IConsumer<PaymentConfirmedIntegrationEvent>
+public sealed class PaymentConfirmedConsumer(
+    OrdersDbContext db,
+    IOrderTrackingNotifier trackingNotifier) : IConsumer<PaymentConfirmedIntegrationEvent>
 {
     public async Task Consume(ConsumeContext<PaymentConfirmedIntegrationEvent> context)
     {
@@ -19,5 +22,7 @@ public sealed class PaymentConfirmedConsumer(OrdersDbContext db) : IConsumer<Pay
         catch (InvalidOperationException) { return; }
 
         await db.SaveChangesAsync(context.CancellationToken);
+
+        trackingNotifier.Notify(order.Id, "Confirmed", "Pagamento confirmado");
     }
 }

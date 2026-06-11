@@ -18,5 +18,6 @@
     <ProjectReference Include="..\Delify.Modules.Orders\Delify.Modules.Orders.csproj" />
     <ProjectReference Include="..\Delify.Modules.Payments\Delify.Modules.Payments.csproj" />
     <ProjectReference Include="..\Delify.Modules.Delivery\Delify.Modules.Delivery.csproj" />
+    <ProjectReference Include="..\Delify.Modules.Bff\Delify.Modules.Bff.csproj" />
   </ItemGroup>
 </Project>

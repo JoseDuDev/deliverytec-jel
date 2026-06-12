@@ -20,13 +20,20 @@ public sealed class PaymentsModule : IModule
             opts.UseNpgsql(configuration.GetConnectionString("Delify"),
                 b => b.MigrationsHistoryTable("__EFMigrationsHistory", "payments")));
 
-        services.AddHttpClient<IPaymentGateway, AsaasPaymentGateway>(client =>
+        var asaasKey = configuration["Asaas:ApiKey"];
+        if (string.IsNullOrWhiteSpace(asaasKey))
         {
-            client.BaseAddress = new Uri(configuration["Asaas:BaseUrl"]
-                ?? "https://sandbox.asaas.com");
-            client.DefaultRequestHeaders.Add("access_token",
-                configuration["Asaas:ApiKey"] ?? string.Empty);
-        });
+            services.AddSingleton<IPaymentGateway, StubPaymentGateway>();
+        }
+        else
+        {
+            services.AddHttpClient<IPaymentGateway, AsaasPaymentGateway>(client =>
+            {
+                client.BaseAddress = new Uri(configuration["Asaas:BaseUrl"]
+                    ?? "https://sandbox.asaas.com");
+                client.DefaultRequestHeaders.Add("access_token", asaasKey);
+            });
+        }
 
         return services;
     }

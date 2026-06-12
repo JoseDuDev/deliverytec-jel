@@ -20,6 +20,7 @@ internal static class TrackingEndpoints
             response.ContentType = "text/event-stream";
             response.Headers.CacheControl = "no-cache";
             response.Headers.Connection = "keep-alive";
+            await response.Body.FlushAsync(ct);
 
             var reader = tracker.Subscribe(orderId);
 

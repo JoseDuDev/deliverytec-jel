@@ -45,7 +45,10 @@ function authHeaders(): HeadersInit {
 }
 
 export async function fetchMenu(slug: string): Promise<MenuResponse> {
-  const res = await fetch(`/bff/menu/${slug}`);
+  const base = typeof window === 'undefined'
+    ? (process.env.INTERNAL_API_URL ?? 'http://localhost:7000')
+    : '';
+  const res = await fetch(`${base}/bff/menu/${slug}`);
   if (!res.ok) throw new Error('Cardápio não encontrado');
   return res.json();
 }

@@ -20,5 +20,6 @@
     <ProjectReference Include="..\Delify.Modules.Delivery\Delify.Modules.Delivery.csproj" />
     <ProjectReference Include="..\Delify.Modules.Bff\Delify.Modules.Bff.csproj" />
     <ProjectReference Include="..\Delify.Modules.Admin\Delify.Modules.Admin.csproj" />
+    <ProjectReference Include="..\Delify.Modules.Painel\Delify.Modules.Painel.csproj" />
   </ItemGroup>
 </Project>

@@ -16,6 +16,10 @@ const nextConfig: NextConfig = {
         source: '/admin-api/:path*',
         destination: 'http://localhost:7000/admin/:path*',
       },
+      {
+        source: '/painel-api/:path*',
+        destination: 'http://localhost:7000/painel/:path*',
+      },
     ];
   },
 };

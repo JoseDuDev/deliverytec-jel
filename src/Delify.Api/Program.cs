@@ -1,5 +1,6 @@
 using Delify.Modules.Admin;
 using Delify.Modules.Bff;
+using Delify.Modules.Painel;
 using Delify.Modules.Catalog;
 using Delify.Modules.Delivery;
 using Delify.Modules.Identity;
@@ -18,6 +19,7 @@ var modules = new List<IModule>
 {
     new IdentityModule(),
     new AdminModule(),
+    new PainelModule(),
     new CatalogModule(),
     new OrdersModule(),
     new PaymentsModule(),

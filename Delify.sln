@@ -31,6 +31,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Delify.Modules.Bff.Tests", 
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Delify.Modules.Admin", "src\Delify.Modules.Admin\Delify.Modules.Admin.csproj", "{CB7511A5-6E65-4771-BF35-50235224C6A5}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Delify.Modules.Painel", "src\Delify.Modules.Painel\Delify.Modules.Painel.csproj", "{E98901D6-9AAE-43DC-B4ED-DA4A634A791B}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -185,6 +187,18 @@ Global
 		{CB7511A5-6E65-4771-BF35-50235224C6A5}.Release|x64.Build.0 = Release|Any CPU
 		{CB7511A5-6E65-4771-BF35-50235224C6A5}.Release|x86.ActiveCfg = Release|Any CPU
 		{CB7511A5-6E65-4771-BF35-50235224C6A5}.Release|x86.Build.0 = Release|Any CPU
+		{E98901D6-9AAE-43DC-B4ED-DA4A634A791B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E98901D6-9AAE-43DC-B4ED-DA4A634A791B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E98901D6-9AAE-43DC-B4ED-DA4A634A791B}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{E98901D6-9AAE-43DC-B4ED-DA4A634A791B}.Debug|x64.Build.0 = Debug|Any CPU
+		{E98901D6-9AAE-43DC-B4ED-DA4A634A791B}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{E98901D6-9AAE-43DC-B4ED-DA4A634A791B}.Debug|x86.Build.0 = Debug|Any CPU
+		{E98901D6-9AAE-43DC-B4ED-DA4A634A791B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E98901D6-9AAE-43DC-B4ED-DA4A634A791B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E98901D6-9AAE-43DC-B4ED-DA4A634A791B}.Release|x64.ActiveCfg = Release|Any CPU
+		{E98901D6-9AAE-43DC-B4ED-DA4A634A791B}.Release|x64.Build.0 = Release|Any CPU
+		{E98901D6-9AAE-43DC-B4ED-DA4A634A791B}.Release|x86.ActiveCfg = Release|Any CPU
+		{E98901D6-9AAE-43DC-B4ED-DA4A634A791B}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -202,5 +216,6 @@ Global
 		{8D4AD268-586D-4DB8-BB17-D283D3EDD134} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{358D9EEC-18EA-41AD-9CAF-F546618B4DA0} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 		{CB7511A5-6E65-4771-BF35-50235224C6A5} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
+		{E98901D6-9AAE-43DC-B4ED-DA4A634A791B} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 	EndGlobalSection
 EndGlobal

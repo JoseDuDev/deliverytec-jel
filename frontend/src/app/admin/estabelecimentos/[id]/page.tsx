@@ -3,18 +3,21 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { getEstabelecimentoDetail, toggleStatus, EstabelecimentoDetail } from '@/lib/adminApi';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { Separator } from '@/components/ui/separator';
 
 function fmt(n: number) {
   return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-}
-
-function StatCard({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-xl bg-white shadow p-5">
-      <p className="text-sm text-gray-500">{label}</p>
-      <p className="mt-1 text-2xl font-bold text-gray-800">{value}</p>
-    </div>
-  );
 }
 
 export default function EstabelecimentoDetailPage() {
@@ -45,121 +48,144 @@ export default function EstabelecimentoDetailPage() {
     }
   }
 
-  if (loading) return <p className="text-gray-500">Carregando...</p>;
-  if (error)   return <p className="text-red-500">{error}</p>;
+  if (loading) return <p className="text-muted-foreground">Carregando...</p>;
+  if (error)   return <p className="text-destructive">{error}</p>;
   if (!detail) return null;
 
-  const statusColor = detail.isActive
-    ? 'bg-green-100 text-green-700'
-    : 'bg-red-100 text-red-600';
-
   return (
-    <div className="max-w-4xl">
-      <div className="mb-6 flex items-center gap-3">
-        <button
-          onClick={() => router.back()}
-          className="text-gray-400 hover:text-gray-700 text-sm"
-        >
-          ← Voltar
-        </button>
-      </div>
+    <div className="max-w-4xl space-y-6">
+      {/* Back */}
+      <Button variant="ghost" size="sm" className="text-muted-foreground -ml-2" onClick={() => router.back()}>
+        ← Voltar
+      </Button>
 
       {/* Header */}
-      <div className="mb-6 flex items-start justify-between">
+      <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800">{detail.name}</h1>
-          <p className="text-sm text-gray-500 font-mono mt-0.5">{detail.slug}</p>
+          <h1 className="text-2xl font-bold tracking-tight">{detail.name}</h1>
+          <p className="text-sm text-muted-foreground font-mono mt-0.5">{detail.slug}</p>
         </div>
         <div className="flex items-center gap-3">
-          <span className={`rounded-full px-3 py-1 text-xs font-semibold ${statusColor}`}>
+          <Badge
+            variant={detail.isActive ? 'default' : 'destructive'}
+            className={detail.isActive ? 'bg-emerald-500 hover:bg-emerald-500' : ''}
+          >
             {detail.isActive ? 'Ativo' : 'Inativo'}
-          </span>
-          <button
+          </Badge>
+          <Button
+            variant="outline"
+            size="sm"
             onClick={handleToggle}
             disabled={toggling}
-            className="rounded-full border border-gray-300 px-4 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-40"
           >
             {toggling ? '...' : detail.isActive ? 'Desativar' : 'Ativar'}
-          </button>
+          </Button>
         </div>
       </div>
 
       {/* Stats */}
-      <div className="mb-6 grid grid-cols-3 gap-4">
-        <StatCard label="Total de pedidos" value={String(detail.stats.totalOrders)} />
-        <StatCard label="Receita total" value={fmt(detail.stats.totalRevenue)} />
-        <StatCard label="Receita (30 dias)" value={fmt(detail.stats.revenueLastMonth)} />
+      <div className="grid grid-cols-3 gap-4">
+        <Card>
+          <CardHeader className="pb-1 pt-4 px-5">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Total de pedidos</CardTitle>
+          </CardHeader>
+          <CardContent className="px-5 pb-4">
+            <p className="text-2xl font-bold">{detail.stats.totalOrders}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-1 pt-4 px-5">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Receita total</CardTitle>
+          </CardHeader>
+          <CardContent className="px-5 pb-4">
+            <p className="text-2xl font-bold">{fmt(detail.stats.totalRevenue)}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-1 pt-4 px-5">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Receita (30 dias)</CardTitle>
+          </CardHeader>
+          <CardContent className="px-5 pb-4">
+            <p className="text-2xl font-bold">{fmt(detail.stats.revenueLastMonth)}</p>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Catalog info */}
       {detail.catalog && (
-        <div className="mb-6 rounded-xl bg-white shadow p-5">
-          <h2 className="mb-3 font-semibold text-gray-700">Cardápio</h2>
-          <div className="flex items-center gap-4">
-            {detail.catalog.logoUrl && (
-              <img src={detail.catalog.logoUrl} alt="logo" className="h-12 w-12 rounded-lg object-cover" />
-            )}
-            <div>
-              <p className="font-medium text-gray-800">{detail.catalog.name}</p>
-              {detail.catalog.description && (
-                <p className="text-sm text-gray-500">{detail.catalog.description}</p>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Cardápio</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex items-center gap-4">
+              {detail.catalog.logoUrl && (
+                <img src={detail.catalog.logoUrl} alt="logo" className="h-12 w-12 rounded-lg object-cover" />
               )}
-              <span
-                className={`mt-1 inline-block rounded-full px-2 py-0.5 text-xs font-medium ${
-                  detail.catalog.isOpen ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-500'
-                }`}
-              >
-                {detail.catalog.isOpen ? 'Aberto' : 'Fechado'}
-              </span>
+              <div>
+                <p className="font-medium">{detail.catalog.name}</p>
+                {detail.catalog.description && (
+                  <p className="text-sm text-muted-foreground">{detail.catalog.description}</p>
+                )}
+                <Badge
+                  variant={detail.catalog.isOpen ? 'default' : 'secondary'}
+                  className={`mt-1 ${detail.catalog.isOpen ? 'bg-emerald-500 hover:bg-emerald-500' : ''}`}
+                >
+                  {detail.catalog.isOpen ? 'Aberto' : 'Fechado'}
+                </Badge>
+              </div>
             </div>
-          </div>
-          <p className="mt-3 text-xs text-gray-400">
-            Ver cardápio:{' '}
-            <Link
-              href={`/${detail.slug}`}
-              target="_blank"
-              className="text-orange-500 hover:underline"
-            >
-              /{detail.slug}
-            </Link>
-          </p>
-        </div>
+            <Separator />
+            <p className="text-xs text-muted-foreground">
+              Ver cardápio:{' '}
+              <Link href={`/${detail.slug}`} target="_blank" className="text-orange-500 hover:underline">
+                /{detail.slug}
+              </Link>
+            </p>
+          </CardContent>
+        </Card>
       )}
 
       {/* Recent orders */}
-      <div className="rounded-xl bg-white shadow overflow-hidden">
-        <div className="px-5 py-4 border-b">
-          <h2 className="font-semibold text-gray-700">Últimos pedidos</h2>
-        </div>
-        {detail.recentOrders.length === 0 ? (
-          <p className="px-5 py-8 text-center text-sm text-gray-400">Nenhum pedido ainda.</p>
-        ) : (
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 text-xs text-gray-500 uppercase tracking-wider">
-              <tr>
-                {['ID', 'Status', 'Itens', 'Total', 'Data'].map((h) => (
-                  <th key={h} className="px-4 py-3 text-left">{h}</th>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Últimos pedidos</CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          {detail.recentOrders.length === 0 ? (
+            <p className="text-center text-muted-foreground py-8 text-sm">Nenhum pedido ainda.</p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>ID</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Itens</TableHead>
+                  <TableHead className="text-right">Total</TableHead>
+                  <TableHead className="text-right">Data</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {detail.recentOrders.map((o) => (
+                  <TableRow key={o.id}>
+                    <TableCell className="font-mono text-muted-foreground">
+                      #{o.id.slice(0, 8).toUpperCase()}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="secondary">{o.status}</Badge>
+                    </TableCell>
+                    <TableCell className="text-right">{o.itemCount}</TableCell>
+                    <TableCell className="text-right font-medium">{fmt(o.total)}</TableCell>
+                    <TableCell className="text-right text-muted-foreground text-sm">
+                      {new Date(o.createdAt).toLocaleString('pt-BR')}
+                    </TableCell>
+                  </TableRow>
                 ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {detail.recentOrders.map((o) => (
-                <tr key={o.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 font-mono text-gray-500">
-                    #{o.id.slice(0, 8).toUpperCase()}
-                  </td>
-                  <td className="px-4 py-3 text-gray-700">{o.status}</td>
-                  <td className="px-4 py-3 text-gray-600">{o.itemCount}</td>
-                  <td className="px-4 py-3 font-medium text-gray-800">{fmt(o.total)}</td>
-                  <td className="px-4 py-3 text-gray-500">
-                    {new Date(o.createdAt).toLocaleString('pt-BR')}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

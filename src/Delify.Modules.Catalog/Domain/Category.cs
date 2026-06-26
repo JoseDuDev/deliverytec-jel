@@ -17,4 +17,12 @@ public sealed class Category : Entity
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         return new Category { TenantId = tenantId, EstablishmentId = establishmentId, Name = name, Order = order };
     }
+
+    public void Update(string name, int order, bool isActive)
+    {
+        Name = name;
+        Order = order;
+        IsActive = isActive;
+        UpdatedAt = DateTimeOffset.UtcNow;
+    }
 }

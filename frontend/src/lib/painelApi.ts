@@ -1,3 +1,27 @@
+export type ProductData = {
+  id: string;
+  categoryId: string;
+  name: string;
+  description: string | null;
+  price: number;
+  photoUrl: string | null;
+  isAvailable: boolean;
+};
+
+export type CategoryData = {
+  id: string;
+  establishmentId: string;
+  name: string;
+  order: number;
+  isActive: boolean;
+  products: ProductData[];
+};
+
+export type CardapioData = {
+  estId: string;
+  categories: CategoryData[];
+};
+
 export type DashboardData = {
   id: string;
   name: string;
@@ -58,6 +82,81 @@ export async function toggleEstabelecimentoStatus(): Promise<{ id: string; isOpe
   });
   return handleResponse(res);
 }
+
+// ── Cardápio ─────────────────────────────────────────────────────────────────
+
+export async function getCardapio(): Promise<CardapioData> {
+  const res = await fetch('/painel-api/cardapio/', { headers: painelHeaders() });
+  return handleResponse(res);
+}
+
+export async function createCategoria(name: string, order = 0): Promise<CategoryData> {
+  const res = await fetch('/painel-api/cardapio/categorias', {
+    method: 'POST',
+    headers: painelHeaders(),
+    body: JSON.stringify({ name, order }),
+  });
+  return handleResponse(res);
+}
+
+export async function updateCategoria(
+  id: string, name: string, order: number, isActive: boolean,
+): Promise<CategoryData> {
+  const res = await fetch(`/painel-api/cardapio/categorias/${id}`, {
+    method: 'PATCH',
+    headers: painelHeaders(),
+    body: JSON.stringify({ name, order, isActive }),
+  });
+  return handleResponse(res);
+}
+
+export async function deleteCategoria(id: string): Promise<void> {
+  const res = await fetch(`/painel-api/cardapio/categorias/${id}`, {
+    method: 'DELETE',
+    headers: painelHeaders(),
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(text || `HTTP ${res.status}`);
+  }
+}
+
+export async function createProduto(
+  categoriaId: string,
+  data: { name: string; price: number; description?: string; photoUrl?: string },
+): Promise<ProductData> {
+  const res = await fetch(`/painel-api/cardapio/categorias/${categoriaId}/produtos`, {
+    method: 'POST',
+    headers: painelHeaders(),
+    body: JSON.stringify(data),
+  });
+  return handleResponse(res);
+}
+
+export async function updateProduto(
+  id: string,
+  data: { name: string; price: number; isAvailable: boolean; description?: string; photoUrl?: string },
+): Promise<ProductData> {
+  const res = await fetch(`/painel-api/cardapio/produtos/${id}`, {
+    method: 'PATCH',
+    headers: painelHeaders(),
+    body: JSON.stringify(data),
+  });
+  return handleResponse(res);
+}
+
+export async function deleteProduto(id: string): Promise<void> {
+  const res = await fetch(`/painel-api/cardapio/produtos/${id}`, {
+    method: 'DELETE',
+    headers: painelHeaders(),
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(text || `HTTP ${res.status}`);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 export async function updateEstabelecimento(data: {
   name: string;

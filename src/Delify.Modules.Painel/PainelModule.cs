@@ -21,6 +21,7 @@ public sealed class PainelModule : IModule
     {
         PainelAuthEndpoints.Map(endpoints);
         PainelDashboardEndpoints.Map(endpoints);
+        PainelCardapioEndpoints.Map(endpoints);
         return endpoints;
     }
 }

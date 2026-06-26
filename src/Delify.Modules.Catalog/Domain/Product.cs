@@ -14,11 +14,11 @@ public sealed class Product : Entity
 
     private Product() { }
 
-    public static Product Create(Guid tenantId, Guid categoryId, string name, decimal price)
+    public static Product Create(Guid tenantId, Guid categoryId, string name, decimal price, string? description = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         if (price < 0) throw new ArgumentOutOfRangeException(nameof(price));
-        return new Product { TenantId = tenantId, CategoryId = categoryId, Name = name, Price = price };
+        return new Product { TenantId = tenantId, CategoryId = categoryId, Name = name, Price = price, Description = description };
     }
 
     public void Update(string name, string? description, decimal price, string? photoUrl, bool isAvailable)

@@ -64,7 +64,7 @@ internal static class ProductEndpoints
             ITenantContext tenant,
             CatalogDbContext db) =>
         {
-            var product = Product.Create(tenant.TenantId, id, req.Name, req.Price);
+            var product = Product.Create(tenant.TenantId, id, req.Name, req.Price, req.Description);
             db.Products.Add(product);
             await db.SaveChangesAsync();
             return Results.Created($"/api/catalog/products/{product.Id}", product);

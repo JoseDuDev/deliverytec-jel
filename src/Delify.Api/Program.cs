@@ -1,3 +1,4 @@
+using Delify.Modules.Admin;
 using Delify.Modules.Bff;
 using Delify.Modules.Catalog;
 using Delify.Modules.Delivery;
@@ -16,6 +17,7 @@ builder.Services.AddSingleton<IOrderTrackingNotifier, NullOrderTrackingNotifier>
 var modules = new List<IModule>
 {
     new IdentityModule(),
+    new AdminModule(),
     new CatalogModule(),
     new OrdersModule(),
     new PaymentsModule(),

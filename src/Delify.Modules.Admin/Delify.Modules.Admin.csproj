@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.0" />
+    <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.7.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Delify.Shared\Delify.Shared.csproj" />
+    <ProjectReference Include="..\Delify.Modules.Identity\Delify.Modules.Identity.csproj" />
+    <ProjectReference Include="..\Delify.Modules.Catalog\Delify.Modules.Catalog.csproj" />
+    <ProjectReference Include="..\Delify.Modules.Orders\Delify.Modules.Orders.csproj" />
+    <ProjectReference Include="..\Delify.Modules.Payments\Delify.Modules.Payments.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -16,4 +16,7 @@ public sealed class Tenant
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         return new Tenant { Slug = slug.ToLowerInvariant(), Name = name };
     }
+
+    public void Activate()   { IsActive = true; }
+    public void Deactivate() { IsActive = false; }
 }

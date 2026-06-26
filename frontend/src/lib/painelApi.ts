@@ -58,3 +58,16 @@ export async function toggleEstabelecimentoStatus(): Promise<{ id: string; isOpe
   });
   return handleResponse(res);
 }
+
+export async function updateEstabelecimento(data: {
+  name: string;
+  description: string | null;
+  logoUrl: string | null;
+}): Promise<DashboardData> {
+  const res = await fetch('/painel-api/me', {
+    method: 'PATCH',
+    headers: painelHeaders(),
+    body: JSON.stringify(data),
+  });
+  return handleResponse(res);
+}

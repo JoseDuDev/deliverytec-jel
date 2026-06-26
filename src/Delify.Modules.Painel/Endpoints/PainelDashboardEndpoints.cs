@@ -8,6 +8,8 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Delify.Modules.Painel.Endpoints;
 
+internal record UpdateEstablishmentRequest(string Name, string? Description, string? LogoUrl);
+
 internal static class PainelDashboardEndpoints
 {
     internal static IEndpointRouteBuilder Map(IEndpointRouteBuilder app)
@@ -33,6 +35,19 @@ internal static class PainelDashboardEndpoints
             await db.SaveChangesAsync();
 
             return Results.Ok(new { est.Id, est.IsOpen });
+        });
+
+        group.MapPatch("/me", async (ITenantContext tenant, CatalogDbContext db, UpdateEstablishmentRequest req) =>
+        {
+            var est = await db.Establishments
+                .FirstOrDefaultAsync(e => e.TenantId == tenant.TenantId);
+
+            if (est is null) return Results.NotFound();
+
+            est.Update(req.Name, req.Description, req.LogoUrl, est.IsOpen);
+            await db.SaveChangesAsync();
+
+            return Results.Ok(new { est.Id, est.Name, est.Description, est.LogoUrl, est.IsOpen });
         });
 
         return app;

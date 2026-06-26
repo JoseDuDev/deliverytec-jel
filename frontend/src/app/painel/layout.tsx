@@ -5,12 +5,13 @@ import { getPainelToken } from '@/lib/painelApi';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
-import { LayoutDashboard, UtensilsCrossed, ClipboardList } from 'lucide-react';
+import { LayoutDashboard, UtensilsCrossed, ClipboardList, Settings } from 'lucide-react';
 
 const NAV = [
-  { href: '/painel',          label: 'Dashboard',   icon: LayoutDashboard },
-  { href: '/painel/cardapio', label: 'Cardápio',    icon: UtensilsCrossed },
-  { href: '/painel/pedidos',  label: 'Pedidos',     icon: ClipboardList },
+  { href: '/painel',                  label: 'Dashboard',     icon: LayoutDashboard },
+  { href: '/painel/cardapio',         label: 'Cardápio',      icon: UtensilsCrossed },
+  { href: '/painel/pedidos',          label: 'Pedidos',       icon: ClipboardList },
+  { href: '/painel/configuracoes',    label: 'Configurações', icon: Settings },
 ];
 
 export default function PainelLayout({ children }: { children: React.ReactNode }) {

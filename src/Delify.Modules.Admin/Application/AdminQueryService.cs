@@ -52,38 +52,36 @@ internal sealed class AdminQueryService(
 
         var monthAgo = DateTimeOffset.UtcNow.AddDays(-30);
 
-        var totalOrdersTask   = ordersDb.Orders.CountAsync(o => o.TenantId == tenantId);
-        var recentOrdersTask  = ordersDb.Orders
+        var totalOrders  = await ordersDb.Orders.CountAsync(o => o.TenantId == tenantId);
+        var recentOrders = await ordersDb.Orders
             .Include(o => o.Items)
             .Where(o => o.TenantId == tenantId)
             .OrderByDescending(o => o.CreatedAt)
             .Take(10)
             .AsNoTracking()
             .ToListAsync();
-        var totalRevenueTask  = paymentsDb.Payments
+        var totalRevenue = await paymentsDb.Payments
             .Where(p => p.TenantId == tenantId && p.Status == PaymentStatus.Confirmed)
             .SumAsync(p => (decimal?)p.Amount);
-        var monthRevenueTask  = paymentsDb.Payments
+        var monthRevenue = await paymentsDb.Payments
             .Where(p => p.TenantId == tenantId && p.Status == PaymentStatus.Confirmed
                      && p.CreatedAt >= monthAgo)
             .SumAsync(p => (decimal?)p.Amount);
-
-        await Task.WhenAll(totalOrdersTask, recentOrdersTask, totalRevenueTask, monthRevenueTask);
 
         var catalogInfo = establishment is null ? null : new EstabelecimentoCatalogInfo(
             establishment.Id, establishment.Name, establishment.Description,
             establishment.LogoUrl, establishment.IsOpen);
 
-        var orders = recentOrdersTask.Result.Select(o => new OrderSummary(
+        var orders = recentOrders.Select(o => new OrderSummary(
             o.Id, o.Status.ToString(), o.Total, o.Items.Count, o.CreatedAt)).ToList();
 
         return new EstabelecimentoDetail(
             tenant.Id, tenant.Name, tenant.Slug, tenant.IsActive, tenant.CreatedAt,
             catalogInfo,
             new EstabelecimentoStats(
-                totalOrdersTask.Result,
-                totalRevenueTask.Result ?? 0m,
-                monthRevenueTask.Result ?? 0m),
+                totalOrders,
+                totalRevenue ?? 0m,
+                monthRevenue ?? 0m),
             orders);
     }
 }

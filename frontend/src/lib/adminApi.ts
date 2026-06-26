@@ -64,7 +64,7 @@ export async function adminLogin(
   email: string,
   password: string,
 ): Promise<{ token: string; expiresAt: string }> {
-  const res = await fetch('/admin/auth/login', {
+  const res = await fetch('/admin-api/auth/login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email, password }),
@@ -73,12 +73,12 @@ export async function adminLogin(
 }
 
 export async function getEstabelecimentos(): Promise<EstabelecimentoSummary[]> {
-  const res = await fetch('/admin/estabelecimentos', { headers: adminHeaders() });
+  const res = await fetch('/admin-api/estabelecimentos', { headers: adminHeaders() });
   return handleResponse(res);
 }
 
 export async function toggleStatus(id: string): Promise<{ id: string; isActive: boolean }> {
-  const res = await fetch(`/admin/estabelecimentos/${id}/status`, {
+  const res = await fetch(`/admin-api/estabelecimentos/${id}/status`, {
     method: 'PATCH',
     headers: adminHeaders(),
   });
@@ -86,6 +86,6 @@ export async function toggleStatus(id: string): Promise<{ id: string; isActive: 
 }
 
 export async function getEstabelecimentoDetail(id: string): Promise<EstabelecimentoDetail> {
-  const res = await fetch(`/admin/estabelecimentos/${id}`, { headers: adminHeaders() });
+  const res = await fetch(`/admin-api/estabelecimentos/${id}`, { headers: adminHeaders() });
   return handleResponse(res);
 }

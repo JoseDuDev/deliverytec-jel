@@ -13,7 +13,7 @@ const nextConfig: NextConfig = {
         destination: 'http://localhost:7000/bff/:path*',
       },
       {
-        source: '/admin/:path*',
+        source: '/admin-api/:path*',
         destination: 'http://localhost:7000/admin/:path*',
       },
     ];

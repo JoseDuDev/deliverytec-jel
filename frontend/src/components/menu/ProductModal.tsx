@@ -2,6 +2,10 @@
 import { useState } from 'react';
 import { MenuResponse } from '@/lib/api';
 import { useCart } from '@/store/cart';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Separator } from '@/components/ui/separator';
 
 type Product = MenuResponse['categories'][0]['products'][0];
 
@@ -49,61 +53,72 @@ export default function ProductModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40">
-      <div className="w-full max-w-lg rounded-t-2xl bg-white p-6">
-        <div className="mb-4 flex items-start justify-between">
-          <h2 className="text-lg font-bold">{product.name}</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">✕</button>
-        </div>
+    <Sheet open onOpenChange={(open) => !open && onClose()}>
+      <SheetContent side="bottom" className="rounded-t-2xl max-w-lg mx-auto px-6 pb-8">
+        <SheetHeader className="mb-4 text-left">
+          <SheetTitle>{product.name}</SheetTitle>
+        </SheetHeader>
 
         {product.description && (
-          <p className="mb-4 text-sm text-gray-500">{product.description}</p>
+          <p className="mb-4 text-sm text-muted-foreground">{product.description}</p>
         )}
 
         {product.complements.length > 0 && (
-          <div className="mb-4">
-            <p className="mb-2 font-semibold text-gray-700">Adicionais</p>
-            {product.complements.map((c) => (
-              <label key={c.id} className="flex items-center justify-between py-2">
-                <div className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={selectedComplements.includes(c.id)}
-                    onChange={() => toggleComplement(c.id)}
-                    className="h-4 w-4 accent-orange-500"
-                  />
-                  <span className="text-sm">{c.name}</span>
-                </div>
-                <span className="text-sm text-orange-500">+R$ {c.price.toFixed(2).replace('.', ',')}</span>
-              </label>
-            ))}
-          </div>
+          <>
+            <p className="mb-3 font-semibold text-sm">Adicionais</p>
+            <div className="mb-4 flex flex-col gap-2">
+              {product.complements.map((c) => (
+                <label
+                  key={c.id}
+                  className="flex items-center justify-between py-2 cursor-pointer"
+                >
+                  <div className="flex items-center gap-3">
+                    <Checkbox
+                      id={c.id}
+                      checked={selectedComplements.includes(c.id)}
+                      onCheckedChange={() => toggleComplement(c.id)}
+                      className="border-orange-300 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
+                    />
+                    <span className="text-sm">{c.name}</span>
+                  </div>
+                  <span className="text-sm text-orange-500">
+                    +R$ {c.price.toFixed(2).replace('.', ',')}
+                  </span>
+                </label>
+              ))}
+            </div>
+            <Separator className="mb-4" />
+          </>
         )}
 
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <button
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-8 w-8 rounded-full"
               onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-              className="flex h-8 w-8 items-center justify-center rounded-full border text-lg font-bold"
             >
               −
-            </button>
+            </Button>
             <span className="w-6 text-center font-semibold">{quantity}</span>
-            <button
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-8 w-8 rounded-full"
               onClick={() => setQuantity((q) => q + 1)}
-              className="flex h-8 w-8 items-center justify-center rounded-full border text-lg font-bold"
             >
               +
-            </button>
+            </Button>
           </div>
-          <button
+          <Button
             onClick={handleAdd}
-            className="rounded-full bg-orange-500 px-6 py-2 font-semibold text-white hover:bg-orange-600"
+            className="rounded-full bg-orange-500 hover:bg-orange-600 text-white px-6"
           >
             Adicionar · R$ {unitTotal.toFixed(2).replace('.', ',')}
-          </button>
+          </Button>
         </div>
-      </div>
-    </div>
+      </SheetContent>
+    </Sheet>
   );
 }

@@ -2,6 +2,10 @@
 import { useEffect, useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { useRouter } from 'next/navigation';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Separator } from '@/components/ui/separator';
 
 export default function PixPanel({
   orderId,
@@ -52,38 +56,37 @@ export default function PixPanel({
   }
 
   return (
-    <div className="flex flex-col items-center gap-6 py-6">
-      <div className="text-center">
-        <p className="text-lg font-bold text-gray-800">Pague com PIX</p>
-        <p className="text-sm text-gray-500">
-          Expira em <span className="font-semibold text-orange-500">{timeLeft}</span>
-        </p>
-      </div>
-
-      <div className="rounded-2xl border-4 border-orange-100 p-4">
-        <QRCodeSVG value={qrCode} size={200} />
-      </div>
-
-      <div className="w-full">
-        <p className="mb-2 text-sm font-medium text-gray-700">Ou copie o código:</p>
-        <div className="flex gap-2">
-          <input
-            readOnly
-            value={copyPaste}
-            className="flex-1 rounded-lg border px-3 py-2 text-xs text-gray-600"
-          />
-          <button
-            onClick={handleCopy}
-            className="rounded-lg bg-orange-500 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-600"
-          >
-            {copied ? 'Copiado!' : 'Copiar'}
-          </button>
+    <Card className="w-full">
+      <CardContent className="flex flex-col items-center gap-6 py-8">
+        <div className="text-center">
+          <p className="text-xl font-bold">Pague com PIX</p>
+          <p className="text-sm text-muted-foreground mt-1">
+            Expira em{' '}
+            <span className="font-semibold text-orange-500">{timeLeft}</span>
+          </p>
         </div>
-      </div>
 
-      <p className="text-center text-sm text-gray-500">
-        Aguardando confirmação do pagamento...
-      </p>
-    </div>
+        <div className="rounded-2xl border-4 border-orange-100 p-4">
+          <QRCodeSVG value={qrCode} size={200} />
+        </div>
+
+        <Separator className="w-full" />
+
+        <div className="w-full space-y-2">
+          <p className="text-sm font-medium text-muted-foreground">Ou copie o código PIX:</p>
+          <div className="flex gap-2">
+            <Input readOnly value={copyPaste} className="text-xs text-muted-foreground" />
+            <Button
+              onClick={handleCopy}
+              className="bg-orange-500 hover:bg-orange-600 text-white shrink-0"
+            >
+              {copied ? 'Copiado!' : 'Copiar'}
+            </Button>
+          </div>
+        </div>
+
+        <p className="text-sm text-muted-foreground">Aguardando confirmação do pagamento...</p>
+      </CardContent>
+    </Card>
   );
 }

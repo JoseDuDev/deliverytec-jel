@@ -4,6 +4,8 @@ import { useCart } from '@/store/cart';
 import { guestSession, placeOrder, saveToken, PlaceOrderResponse } from '@/lib/api';
 import GuestForm, { CheckoutFormData } from '@/components/checkout/GuestForm';
 import PixPanel from '@/components/checkout/PixPanel';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
 
 export default function CheckoutPage() {
   const { items, establishmentId, total, clear } = useCart();
@@ -62,18 +64,41 @@ export default function CheckoutPage() {
   }
 
   return (
-    <main className="mx-auto max-w-lg px-4 py-8">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold">Checkout</h1>
-        <p className="text-gray-500">
+    <main className="mx-auto max-w-lg px-4 py-8 space-y-4">
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight">Checkout</h1>
+        <p className="text-muted-foreground text-sm mt-1">
           {items.length} {items.length === 1 ? 'item' : 'itens'} ·{' '}
           R$ {total().toFixed(2).replace('.', ',')}
         </p>
       </div>
 
       {error && (
-        <div className="mb-4 rounded-lg bg-red-50 p-4 text-sm text-red-600">{error}</div>
+        <div className="rounded-md bg-destructive/10 px-4 py-3 text-sm text-destructive">{error}</div>
       )}
+
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">Resumo do pedido</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2 pb-4">
+          {items.map((item) => (
+            <div key={item.productId} className="flex justify-between text-sm">
+              <span className="text-muted-foreground">
+                {item.quantity}× {item.name}
+              </span>
+              <span className="font-medium">
+                R$ {((item.price + item.complementsTotal) * item.quantity).toFixed(2).replace('.', ',')}
+              </span>
+            </div>
+          ))}
+          <Separator />
+          <div className="flex justify-between font-bold">
+            <span>Total</span>
+            <span>R$ {total().toFixed(2).replace('.', ',')}</span>
+          </div>
+        </CardContent>
+      </Card>
 
       <GuestForm onSubmit={handleSubmit} loading={loading} />
     </main>

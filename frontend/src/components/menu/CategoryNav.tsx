@@ -1,4 +1,5 @@
 'use client';
+import { Button } from '@/components/ui/button';
 
 export default function CategoryNav({
   categories,
@@ -10,15 +11,17 @@ export default function CategoryNav({
   }
 
   return (
-    <nav className="sticky top-0 z-10 flex gap-2 overflow-x-auto bg-white px-4 py-3 shadow-sm">
+    <nav className="sticky top-0 z-10 flex gap-2 overflow-x-auto bg-background px-4 py-3 shadow-sm">
       {categories.map((cat) => (
-        <button
+        <Button
           key={cat.id}
+          variant="outline"
+          size="sm"
           onClick={() => scrollTo(cat.id)}
-          className="shrink-0 rounded-full border border-orange-200 px-4 py-1 text-sm font-medium text-orange-600 hover:bg-orange-50"
+          className="shrink-0 rounded-full border-orange-200 text-orange-600 hover:bg-orange-50 hover:text-orange-700"
         >
           {cat.name}
-        </button>
+        </Button>
       ))}
     </nav>
   );

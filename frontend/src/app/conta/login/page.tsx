@@ -3,6 +3,10 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { login, saveToken } from '@/lib/api';
 import Link from 'next/link';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Button } from '@/components/ui/button';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -27,40 +31,57 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="mx-auto max-w-sm px-4 py-12">
-      <h1 className="mb-6 text-2xl font-bold">Entrar</h1>
-      {error && <div className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-600">{error}</div>}
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-        <input
-          type="email"
-          placeholder="Email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-          className="rounded-lg border px-4 py-2 focus:outline-none focus:ring-2 focus:ring-orange-400"
-        />
-        <input
-          type="password"
-          placeholder="Senha"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-          className="rounded-lg border px-4 py-2 focus:outline-none focus:ring-2 focus:ring-orange-400"
-        />
-        <button
-          type="submit"
-          disabled={loading}
-          className="rounded-full bg-orange-500 py-3 font-semibold text-white disabled:opacity-60 hover:bg-orange-600"
-        >
-          {loading ? 'Entrando...' : 'Entrar'}
-        </button>
-      </form>
-      <p className="mt-4 text-center text-sm text-gray-500">
-        Não tem conta?{' '}
-        <Link href="/conta/cadastro" className="text-orange-500 font-medium">
-          Cadastre-se
-        </Link>
-      </p>
+    <main className="min-h-screen flex items-center justify-center bg-muted/30 px-4">
+      <Card className="w-full max-w-sm">
+        <CardHeader>
+          <CardTitle className="text-2xl">Entrar</CardTitle>
+          <CardDescription>Acesse sua conta Delify</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {error && (
+            <div className="mb-4 rounded-md bg-destructive/10 px-4 py-3 text-sm text-destructive">
+              {error}
+            </div>
+          )}
+          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="voce@email.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="password">Senha</Label>
+              <Input
+                id="password"
+                type="password"
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
+            </div>
+            <Button
+              type="submit"
+              disabled={loading}
+              className="rounded-full bg-orange-500 hover:bg-orange-600 text-white"
+            >
+              {loading ? 'Entrando...' : 'Entrar'}
+            </Button>
+          </form>
+          <p className="mt-4 text-center text-sm text-muted-foreground">
+            Não tem conta?{' '}
+            <Link href="/conta/cadastro" className="text-orange-500 font-medium hover:underline">
+              Cadastre-se
+            </Link>
+          </p>
+        </CardContent>
+      </Card>
     </main>
   );
 }

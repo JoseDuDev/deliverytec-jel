@@ -89,3 +89,22 @@ export async function getEstabelecimentoDetail(id: string): Promise<Estabelecime
   const res = await fetch(`/admin-api/estabelecimentos/${id}`, { headers: adminHeaders() });
   return handleResponse(res);
 }
+
+export type CreateEstabelecimentoInput = {
+  name: string;
+  slug: string;
+  ownerName: string;
+  ownerEmail: string;
+  ownerPassword: string;
+};
+
+export async function createEstabelecimento(
+  data: CreateEstabelecimentoInput,
+): Promise<{ id: string; slug: string; name: string; ownerEmail: string }> {
+  const res = await fetch('/admin-api/estabelecimentos', {
+    method: 'POST',
+    headers: adminHeaders(),
+    body: JSON.stringify(data),
+  });
+  return handleResponse(res);
+}

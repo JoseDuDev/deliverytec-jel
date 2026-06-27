@@ -15,20 +15,33 @@ const STEPS = [
   { key: 'Delivered',      label: 'Pedido entregue!' },
 ];
 
+const TERMINAL = new Set(['Delivered', 'Cancelled']);
+
 export function useOrderTracking(orderId: string) {
-  const [history, setHistory] = useState<TrackingStatus[]>([]);
   const [currentStatus, setCurrentStatus] = useState<string | null>(null);
   const [done, setDone] = useState(false);
 
+  // Fetch current status on mount — order may already be in a later state
+  useEffect(() => {
+    fetch(`/bff/orders/${orderId}/status`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => {
+        if (!d) return;
+        setCurrentStatus(d.status);
+        if (TERMINAL.has(d.status)) setDone(true);
+      })
+      .catch(() => {});
+  }, [orderId]);
+
+  // SSE for live future updates
   useEffect(() => {
     const es = new EventSource(`/bff/orders/${orderId}/track`);
 
     es.addEventListener('status-changed', (e) => {
       const data: TrackingStatus = JSON.parse(e.data);
       setCurrentStatus(data.status);
-      setHistory((prev) => [...prev, data]);
 
-      if (data.status === 'Delivered' || data.status === 'Cancelled') {
+      if (TERMINAL.has(data.status)) {
         setDone(true);
         es.close();
       }
@@ -39,5 +52,5 @@ export function useOrderTracking(orderId: string) {
     return () => es.close();
   }, [orderId]);
 
-  return { history, currentStatus, done, steps: STEPS };
+  return { currentStatus, done, steps: STEPS };
 }

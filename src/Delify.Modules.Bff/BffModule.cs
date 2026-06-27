@@ -28,6 +28,7 @@ public sealed class BffModule : IModule
         AuthEndpoints.Map(endpoints);
         OrderEndpoints.Map(endpoints);
         TrackingEndpoints.Map(endpoints);
+        DevEndpoints.Map(endpoints);
         return endpoints;
     }
 }

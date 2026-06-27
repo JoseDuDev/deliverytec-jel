@@ -7,6 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 
+const IS_DEV = process.env.NODE_ENV === 'development';
+
 export default function PixPanel({
   orderId,
   qrCode,
@@ -21,6 +23,7 @@ export default function PixPanel({
   const router = useRouter();
   const [copied, setCopied] = useState(false);
   const [timeLeft, setTimeLeft] = useState('');
+  const [simulating, setSimulating] = useState(false);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -37,6 +40,7 @@ export default function PixPanel({
     return () => clearInterval(interval);
   }, [expiresAt]);
 
+  // Tracking SSE — redirects automatically when payment confirmed
   useEffect(() => {
     const es = new EventSource(`/bff/orders/${orderId}/track`);
     es.addEventListener('status-changed', (e) => {
@@ -55,6 +59,20 @@ export default function PixPanel({
     setTimeout(() => setCopied(false), 2000);
   }
 
+  async function handleSimulate() {
+    setSimulating(true);
+    try {
+      await fetch(`/bff/dev/simulate-payment/${orderId}`, { method: 'POST' });
+      // SSE will detect the confirmation and redirect automatically
+    } catch {
+      setSimulating(false);
+    }
+  }
+
+  // QR code value: always use copyPaste (EMV string) — it's the actual PIX payload.
+  // The qrCode field from Asaas is a pre-rendered PNG image, not a text string.
+  const qrValue = copyPaste || qrCode;
+
   return (
     <Card className="w-full">
       <CardContent className="flex flex-col items-center gap-6 py-8">
@@ -67,7 +85,7 @@ export default function PixPanel({
         </div>
 
         <div className="rounded-2xl border-4 border-orange-100 p-4">
-          <QRCodeSVG value={qrCode} size={200} />
+          <QRCodeSVG value={qrValue} size={200} />
         </div>
 
         <Separator className="w-full" />
@@ -85,7 +103,21 @@ export default function PixPanel({
           </div>
         </div>
 
-        <p className="text-sm text-muted-foreground">Aguardando confirmação do pagamento...</p>
+        <p className="text-sm text-muted-foreground">
+          {simulating ? 'Confirmando pagamento...' : 'Aguardando confirmação do pagamento...'}
+        </p>
+
+        {IS_DEV && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleSimulate}
+            disabled={simulating}
+            className="border-dashed border-yellow-400 text-yellow-700 hover:bg-yellow-50 w-full"
+          >
+            {simulating ? 'Simulando...' : '⚡ Simular pagamento (dev)'}
+          </Button>
+        )}
       </CardContent>
     </Card>
   );

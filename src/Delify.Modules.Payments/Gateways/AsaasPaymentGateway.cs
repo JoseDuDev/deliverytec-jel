@@ -11,9 +11,11 @@ internal sealed class AsaasPaymentGateway(HttpClient httpClient, IConfiguration 
 
     public async Task<PixPaymentResult> CreatePixAsync(PixPaymentRequest request, CancellationToken ct = default)
     {
+        var customerId = await GetOrCreateCustomerAsync(request.CustomerCpf, request.CustomerName, ct);
+
         var body = new
         {
-            customer = request.CustomerCpf,
+            customer = customerId,
             billingType = "PIX",
             value = request.Amount,
             dueDate = DateTimeOffset.UtcNow.AddHours(24).ToString("yyyy-MM-dd"),
@@ -48,5 +50,23 @@ internal sealed class AsaasPaymentGateway(HttpClient httpClient, IConfiguration 
         var paymentId = json.RootElement.GetProperty("payment").GetProperty("id").GetString()!;
 
         return Task.FromResult(new WebhookResult(paymentId, eventType == "PAYMENT_CONFIRMED"));
+    }
+
+    private async Task<string> GetOrCreateCustomerAsync(string cpf, string name, CancellationToken ct)
+    {
+        // Busca cliente existente pelo CPF
+        var search = await httpClient.GetFromJsonAsync<JsonElement>(
+            $"/api/v3/customers?cpfCnpj={cpf}&limit=1", ct);
+
+        var data = search.GetProperty("data");
+        if (data.GetArrayLength() > 0)
+            return data[0].GetProperty("id").GetString()!;
+
+        // Cria novo cliente
+        var create = await httpClient.PostAsJsonAsync("/api/v3/customers", new { name, cpfCnpj = cpf }, ct);
+        create.EnsureSuccessStatusCode();
+
+        var created = await create.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: ct);
+        return created.GetProperty("id").GetString()!;
     }
 }

@@ -1,3 +1,18 @@
+export type OrderItemData = {
+  productName: string;
+  quantity: number;
+  unitPrice: number;
+};
+
+export type OrderData = {
+  id: string;
+  status: string;
+  total: number;
+  createdAt: string;
+  customerNote: string | null;
+  items: OrderItemData[];
+};
+
 export type ProductData = {
   id: string;
   categoryId: string;
@@ -82,6 +97,26 @@ export async function toggleEstabelecimentoStatus(): Promise<{ id: string; isOpe
   });
   return handleResponse(res);
 }
+
+// ── Pedidos ───────────────────────────────────────────────────────────────────
+
+export async function getOrders(status = 'active'): Promise<OrderData[]> {
+  const res = await fetch(`/painel-api/pedidos/?status=${status}`, { headers: painelHeaders() });
+  return handleResponse(res);
+}
+
+async function orderAction(id: string, action: string): Promise<OrderData> {
+  const res = await fetch(`/painel-api/pedidos/${id}/${action}`, {
+    method: 'PATCH',
+    headers: painelHeaders(),
+  });
+  return handleResponse(res);
+}
+
+export const acceptOrder        = (id: string) => orderAction(id, 'accept');
+export const startDeliveryOrder = (id: string) => orderAction(id, 'start-delivery');
+export const completeOrder      = (id: string) => orderAction(id, 'complete');
+export const cancelOrder        = (id: string) => orderAction(id, 'cancel');
 
 // ── Cardápio ─────────────────────────────────────────────────────────────────
 

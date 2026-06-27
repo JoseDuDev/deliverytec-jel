@@ -1,5 +1,6 @@
 using Delify.Modules.Painel.Application;
 using Delify.Modules.Painel.Endpoints;
+using Delify.Modules.Painel.Services;
 using Delify.Shared.Abstractions;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
@@ -14,6 +15,12 @@ public sealed class PainelModule : IModule
     public IServiceCollection RegisterServices(IServiceCollection services, IConfiguration configuration)
     {
         services.AddScoped<PainelQueryService>();
+
+        // Singleton notifier — overrides the NullPainelDashboardNotifier registered in Program.cs
+        services.AddSingleton<PainelDashboardNotifier>();
+        services.AddSingleton<IPainelDashboardNotifier>(sp =>
+            sp.GetRequiredService<PainelDashboardNotifier>());
+
         return services;
     }
 
@@ -22,6 +29,7 @@ public sealed class PainelModule : IModule
         PainelAuthEndpoints.Map(endpoints);
         PainelDashboardEndpoints.Map(endpoints);
         PainelCardapioEndpoints.Map(endpoints);
+        PainelOrdersEndpoints.Map(endpoints);
         return endpoints;
     }
 }

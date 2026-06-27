@@ -12,8 +12,9 @@ using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Registra implementação nula por padrão; BffModule sobrescreve com a real
+// Null impls registradas por padrão; os módulos sobrescrevem com as reais
 builder.Services.AddSingleton<IOrderTrackingNotifier, NullOrderTrackingNotifier>();
+builder.Services.AddSingleton<IPainelDashboardNotifier, NullPainelDashboardNotifier>();
 
 var modules = new List<IModule>
 {
@@ -35,6 +36,7 @@ builder.Services.AddMassTransit(x =>
     x.SetKebabCaseEndpointNameFormatter();
     x.AddConsumers(typeof(OrdersModule).Assembly);
     x.AddConsumers(typeof(PaymentsModule).Assembly);
+    x.AddConsumers(typeof(PainelModule).Assembly);
 
     x.UsingRabbitMq((ctx, cfg) =>
     {

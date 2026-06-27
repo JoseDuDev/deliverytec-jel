@@ -38,6 +38,10 @@ namespace Delify.Modules.Orders.Infrastructure.Migrations
                     b.Property<string>("CustomerNote")
                         .HasColumnType("text");
 
+                    b.Property<decimal>("DeliveryFee")
+                        .HasColumnType("numeric(10,2)")
+                        .HasDefaultValue(0m);
+
                     b.Property<Guid>("EstablishmentId")
                         .HasColumnType("uuid");
 

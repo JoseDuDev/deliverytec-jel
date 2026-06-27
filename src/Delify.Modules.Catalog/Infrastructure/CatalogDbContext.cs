@@ -20,6 +20,7 @@ public sealed class CatalogDbContext(DbContextOptions<CatalogDbContext> options)
             e.HasIndex(x => x.Slug).IsUnique();
             e.Property(x => x.Slug).HasMaxLength(100);
             e.Property(x => x.Name).HasMaxLength(200);
+            e.Property(x => x.DeliveryFee).HasColumnType("numeric(10,2)").HasDefaultValue(0m);
             e.HasMany(x => x.Categories).WithOne().HasForeignKey(c => c.EstablishmentId);
         });
 

@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 
 export default function CheckoutPage() {
-  const { items, establishmentId, total, clear } = useCart();
+  const { items, establishmentId, subtotal, total, deliveryFee, clear } = useCart();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [orderResult, setOrderResult] = useState<PlaceOrderResponse | null>(null);
@@ -73,6 +73,7 @@ export default function CheckoutPage() {
         </p>
       </div>
 
+
       {error && (
         <div className="rounded-md bg-destructive/10 px-4 py-3 text-sm text-destructive">{error}</div>
       )}
@@ -93,6 +94,19 @@ export default function CheckoutPage() {
             </div>
           ))}
           <Separator />
+          {deliveryFee > 0 && (
+            <>
+              <div className="flex justify-between text-sm text-muted-foreground">
+                <span>Subtotal</span>
+                <span>R$ {subtotal().toFixed(2).replace('.', ',')}</span>
+              </div>
+              <div className="flex justify-between text-sm text-muted-foreground">
+                <span>Taxa de entrega</span>
+                <span>R$ {deliveryFee.toFixed(2).replace('.', ',')}</span>
+              </div>
+              <Separator />
+            </>
+          )}
           <div className="flex justify-between font-bold">
             <span>Total</span>
             <span>R$ {total().toFixed(2).replace('.', ',')}</span>

@@ -107,6 +107,10 @@ namespace Delify.Modules.Catalog.Infrastructure.Migrations
                     b.Property<string>("Description")
                         .HasColumnType("text");
 
+                    b.Property<decimal>("DeliveryFee")
+                        .HasColumnType("numeric(10,2)")
+                        .HasDefaultValue(0m);
+
                     b.Property<bool>("IsOpen")
                         .HasColumnType("boolean");
 

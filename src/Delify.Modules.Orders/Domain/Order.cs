@@ -10,13 +10,14 @@ public sealed class Order : AggregateRoot
     public OrderStatus Status { get; private set; } = OrderStatus.PendingPayment;
     public string? CustomerNote { get; internal set; }
     public ICollection<OrderItem> Items { get; private set; } = [];
-    public decimal Total => Items.Sum(i => i.Total);
+    public decimal DeliveryFee { get; private set; }
+    public decimal Total => Items.Sum(i => i.Total) + DeliveryFee;
 
     private Order() { }
 
-    public static Order Create(Guid tenantId, Guid establishmentId, Guid? customerId = null)
+    public static Order Create(Guid tenantId, Guid establishmentId, decimal deliveryFee = 0, Guid? customerId = null)
     {
-        return new Order { TenantId = tenantId, EstablishmentId = establishmentId, CustomerId = customerId };
+        return new Order { TenantId = tenantId, EstablishmentId = establishmentId, DeliveryFee = deliveryFee >= 0 ? deliveryFee : 0, CustomerId = customerId };
     }
 
     public void AddItem(Guid productId, string productName, int quantity, decimal unitPrice)

@@ -27,6 +27,8 @@ internal static class MenuEndpoints
                 establishment.Id,
                 establishment.Name,
                 establishment.Slug,
+                establishment.IsOpen,
+                establishment.DeliveryFee,
                 establishment.Categories
                     .Select(c => new MenuCategoryDto(
                         c.Id,

@@ -50,7 +50,7 @@ internal static class OrderEndpoints
             // 3. Criar o Order
             // CustomerNote has internal set — only settable from within the Orders module assembly.
             // The note is passed via OrderCreatedIntegrationEvent so the Orders handler can apply it.
-            var order = Order.Create(establishment.TenantId, req.EstablishmentId);
+            var order = Order.Create(establishment.TenantId, req.EstablishmentId, establishment.DeliveryFee);
 
             foreach (var itemReq in req.Items)
             {
@@ -92,8 +92,11 @@ internal static class OrderEndpoints
             trackingNotifier.Notify(order.Id, "Pending", "Aguardando pagamento");
 
             // 9. Retornar resposta
+            var subtotal = order.Items.Sum(i => i.Total);
             var response = new PlaceOrderResponse(
                 order.Id,
+                subtotal,
+                order.DeliveryFee,
                 order.Total,
                 new PixResponse(pixResult.QrCode, pixResult.CopyPaste, pixResult.ExpiresAt));
 

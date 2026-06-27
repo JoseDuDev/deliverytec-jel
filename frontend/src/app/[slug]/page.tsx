@@ -33,6 +33,7 @@ export default async function MenuPage({ params }: { params: Promise<{ slug: str
                   product={product}
                   establishmentId={menu.establishmentId}
                   slug={slug}
+                  deliveryFee={menu.deliveryFee}
                 />
               ))}
             </div>

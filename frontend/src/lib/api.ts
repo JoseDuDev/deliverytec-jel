@@ -4,6 +4,8 @@ export type MenuResponse = {
   establishmentId: string;
   name: string;
   slug: string;
+  isOpen: boolean;
+  deliveryFee: number;
   categories: {
     id: string;
     name: string;
@@ -21,6 +23,8 @@ export type MenuResponse = {
 
 export type PlaceOrderResponse = {
   orderId: string;
+  subtotal: number;
+  deliveryFee: number;
   total: number;
   pix: { qrCode: string; copyPaste: string; expiresAt: string };
 };

@@ -14,11 +14,13 @@ export type CartItem = {
 type CartState = {
   establishmentId: string | null;
   slug: string | null;
+  deliveryFee: number;
   items: CartItem[];
-  addItem: (item: CartItem, establishmentId: string, slug: string) => void;
+  addItem: (item: CartItem, establishmentId: string, slug: string, deliveryFee: number) => void;
   removeItem: (productId: string) => void;
   updateQuantity: (productId: string, quantity: number) => void;
   clear: () => void;
+  subtotal: () => number;
   total: () => number;
 };
 
@@ -27,12 +29,13 @@ export const useCart = create<CartState>()(
     (set, get) => ({
       establishmentId: null,
       slug: null,
+      deliveryFee: 0,
       items: [],
 
-      addItem: (item, establishmentId, slug) => {
+      addItem: (item, establishmentId, slug, deliveryFee) => {
         const state = get();
         if (state.establishmentId && state.establishmentId !== establishmentId) {
-          set({ items: [item], establishmentId, slug });
+          set({ items: [item], establishmentId, slug, deliveryFee });
           return;
         }
         const existing = state.items.find((i) => i.productId === item.productId);
@@ -43,9 +46,10 @@ export const useCart = create<CartState>()(
                 ? { ...i, quantity: i.quantity + item.quantity }
                 : i,
             ),
+            deliveryFee,
           });
         } else {
-          set({ items: [...state.items, item], establishmentId, slug });
+          set({ items: [...state.items, item], establishmentId, slug, deliveryFee });
         }
       },
 
@@ -62,13 +66,18 @@ export const useCart = create<CartState>()(
                 ),
         })),
 
-      clear: () => set({ items: [], establishmentId: null, slug: null }),
+      clear: () => set({ items: [], establishmentId: null, slug: null, deliveryFee: 0 }),
 
-      total: () =>
+      subtotal: () =>
         get().items.reduce(
           (sum, i) => sum + (i.price + i.complementsTotal) * i.quantity,
           0,
         ),
+
+      total: () => {
+        const s = get();
+        return s.subtotal() + s.deliveryFee;
+      },
     }),
     { name: 'delify-cart' },
   ),

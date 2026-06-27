@@ -13,11 +13,13 @@ export default function ProductModal({
   product,
   establishmentId,
   slug,
+  deliveryFee,
   onClose,
 }: {
   product: Product;
   establishmentId: string;
   slug: string;
+  deliveryFee: number;
   onClose: () => void;
 }) {
   const [quantity, setQuantity] = useState(1);
@@ -48,6 +50,7 @@ export default function ProductModal({
       },
       establishmentId,
       slug,
+      deliveryFee,
     );
     onClose();
   }

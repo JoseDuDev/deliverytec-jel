@@ -14,7 +14,7 @@ export default function CartDrawer({
   onClose: () => void;
 }) {
   const router = useRouter();
-  const { items, updateQuantity, removeItem, total } = useCart();
+  const { items, updateQuantity, removeItem, subtotal, total, deliveryFee } = useCart();
 
   function goToCheckout() {
     onClose();
@@ -73,6 +73,18 @@ export default function CartDrawer({
 
         <Separator />
         <div className="px-4 py-4 space-y-3">
+          {deliveryFee > 0 && (
+            <div className="flex items-center justify-between text-sm text-muted-foreground">
+              <span>Subtotal</span>
+              <span>R$ {subtotal().toFixed(2).replace('.', ',')}</span>
+            </div>
+          )}
+          {deliveryFee > 0 && (
+            <div className="flex items-center justify-between text-sm text-muted-foreground">
+              <span>Taxa de entrega</span>
+              <span>R$ {deliveryFee.toFixed(2).replace('.', ',')}</span>
+            </div>
+          )}
           <div className="flex items-center justify-between font-bold">
             <span>Total</span>
             <span>R$ {total().toFixed(2).replace('.', ',')}</span>

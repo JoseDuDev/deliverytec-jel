@@ -9,10 +9,12 @@ export default function ProductCard({
   product,
   establishmentId,
   slug,
+  deliveryFee,
 }: {
   product: Product;
   establishmentId: string;
   slug: string;
+  deliveryFee: number;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -45,6 +47,7 @@ export default function ProductCard({
           product={product}
           establishmentId={establishmentId}
           slug={slug}
+          deliveryFee={deliveryFee}
           onClose={() => setOpen(false)}
         />
       )}

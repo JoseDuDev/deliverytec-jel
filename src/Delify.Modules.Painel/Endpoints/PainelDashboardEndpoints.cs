@@ -8,7 +8,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Delify.Modules.Painel.Endpoints;
 
-internal record UpdateEstablishmentRequest(string Name, string? Description, string? LogoUrl);
+internal record UpdateEstablishmentRequest(string Name, string? Description, string? LogoUrl, decimal DeliveryFee);
 
 internal static class PainelDashboardEndpoints
 {
@@ -31,7 +31,7 @@ internal static class PainelDashboardEndpoints
 
             if (est is null) return Results.NotFound();
 
-            est.Update(est.Name, est.Description, est.LogoUrl, !est.IsOpen);
+            est.Update(est.Name, est.Description, est.LogoUrl, !est.IsOpen, est.DeliveryFee);
             await db.SaveChangesAsync();
 
             return Results.Ok(new { est.Id, est.IsOpen });
@@ -44,10 +44,10 @@ internal static class PainelDashboardEndpoints
 
             if (est is null) return Results.NotFound();
 
-            est.Update(req.Name, req.Description, req.LogoUrl, est.IsOpen);
+            est.Update(req.Name, req.Description, req.LogoUrl, est.IsOpen, req.DeliveryFee);
             await db.SaveChangesAsync();
 
-            return Results.Ok(new { est.Id, est.Name, est.Description, est.LogoUrl, est.IsOpen });
+            return Results.Ok(new { est.Id, est.Name, est.Description, est.LogoUrl, est.IsOpen, est.DeliveryFee });
         });
 
         return app;

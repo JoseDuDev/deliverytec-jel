@@ -14,9 +14,10 @@ export default function ConfiguracoesPage() {
   const [saved, setSaved]     = useState(false);
   const [error, setError]     = useState<string | null>(null);
 
-  const [name, setName]           = useState('');
+  const [name, setName]               = useState('');
   const [description, setDescription] = useState('');
-  const [logoUrl, setLogoUrl]     = useState('');
+  const [logoUrl, setLogoUrl]         = useState('');
+  const [deliveryFee, setDeliveryFee] = useState(0);
 
   useEffect(() => {
     getDashboard()
@@ -25,6 +26,7 @@ export default function ConfiguracoesPage() {
         setName(d.name);
         setDescription(d.description ?? '');
         setLogoUrl(d.logoUrl ?? '');
+        setDeliveryFee(d.deliveryFee ?? 0);
       })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
@@ -40,6 +42,7 @@ export default function ConfiguracoesPage() {
         name,
         description: description || null,
         logoUrl: logoUrl || null,
+        deliveryFee,
       });
       setData((d) => d && { ...d, ...updated });
       setSaved(true);
@@ -93,6 +96,22 @@ export default function ConfiguracoesPage() {
                 placeholder="Conta um pouco sobre o seu estabelecimento..."
                 rows={3}
               />
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="deliveryFee">Taxa de entrega (R$)</Label>
+              <Input
+                id="deliveryFee"
+                type="number"
+                min={0}
+                step={0.01}
+                value={deliveryFee}
+                onChange={(e) => setDeliveryFee(Math.max(0, parseFloat(e.target.value) || 0))}
+                placeholder="0,00"
+              />
+              <p className="text-xs text-muted-foreground">
+                {deliveryFee === 0 ? 'Entrega grátis — será exibida como gratuita no cardápio.' : `R$ ${deliveryFee.toFixed(2).replace('.', ',')} adicionado ao total do pedido.`}
+              </p>
             </div>
 
             <div className="flex flex-col gap-1.5">

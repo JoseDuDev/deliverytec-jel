@@ -9,6 +9,7 @@ public sealed class Establishment : Entity
     public string? LogoUrl { get; private set; }
     public string? Description { get; private set; }
     public bool IsOpen { get; private set; }
+    public decimal DeliveryFee { get; private set; }
     public ICollection<Category> Categories { get; private set; } = [];
 
     private Establishment() { }
@@ -20,12 +21,13 @@ public sealed class Establishment : Entity
         return new Establishment { TenantId = tenantId, Slug = slug.ToLowerInvariant(), Name = name };
     }
 
-    public void Update(string name, string? description, string? logoUrl, bool isOpen)
+    public void Update(string name, string? description, string? logoUrl, bool isOpen, decimal deliveryFee)
     {
         Name = name;
         Description = description;
         LogoUrl = logoUrl;
         IsOpen = isOpen;
+        DeliveryFee = deliveryFee >= 0 ? deliveryFee : 0;
         UpdatedAt = DateTimeOffset.UtcNow;
     }
 }

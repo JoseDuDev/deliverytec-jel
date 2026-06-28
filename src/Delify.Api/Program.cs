@@ -2,12 +2,18 @@ using Delify.Modules.Admin;
 using Delify.Modules.Bff;
 using Delify.Modules.Painel;
 using Delify.Modules.Catalog;
+using Delify.Modules.Catalog.Infrastructure;
 using Delify.Modules.Delivery;
+using Delify.Modules.Delivery.Infrastructure;
 using Delify.Modules.Identity;
+using Delify.Modules.Identity.Infrastructure;
 using Delify.Modules.Orders;
+using Delify.Modules.Orders.Infrastructure;
 using Delify.Modules.Payments;
+using Delify.Modules.Payments.Infrastructure;
 using Delify.Shared.Abstractions;
 using MassTransit;
+using Microsoft.EntityFrameworkCore;
 using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -64,6 +70,17 @@ builder.Services.AddOutputCache();
 builder.Services.AddProblemDetails();
 
 var app = builder.Build();
+
+// Apply pending EF migrations on startup
+using (var scope = app.Services.CreateScope())
+{
+    var sp = scope.ServiceProvider;
+    await sp.GetRequiredService<IdentityDbContext>().Database.MigrateAsync();
+    await sp.GetRequiredService<CatalogDbContext>().Database.MigrateAsync();
+    await sp.GetRequiredService<OrdersDbContext>().Database.MigrateAsync();
+    await sp.GetRequiredService<PaymentsDbContext>().Database.MigrateAsync();
+    await sp.GetRequiredService<DeliveryDbContext>().Database.MigrateAsync();
+}
 
 if (app.Environment.IsDevelopment())
 {

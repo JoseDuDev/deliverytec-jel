@@ -20,6 +20,12 @@ export default async function MenuPage({ params }: { params: Promise<{ slug: str
         <h1 className="text-2xl font-bold">{menu.name}</h1>
       </header>
 
+      {!menu.isOpen && (
+        <div className="bg-gray-800 text-white text-center px-4 py-3 text-sm font-medium">
+          Estabelecimento fechado no momento — pedidos não estão sendo aceitos.
+        </div>
+      )}
+
       <CategoryNav categories={menu.categories} />
 
       <div className="mx-auto max-w-2xl px-4 py-4">
@@ -34,6 +40,7 @@ export default async function MenuPage({ params }: { params: Promise<{ slug: str
                   establishmentId={menu.establishmentId}
                   slug={slug}
                   deliveryFee={menu.deliveryFee}
+                  isOpen={menu.isOpen}
                 />
               ))}
             </div>
@@ -41,7 +48,7 @@ export default async function MenuPage({ params }: { params: Promise<{ slug: str
         ))}
       </div>
 
-      <CartButton slug={slug} />
+      <CartButton slug={slug} isOpen={menu.isOpen} />
     </main>
   );
 }

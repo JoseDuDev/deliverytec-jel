@@ -72,10 +72,24 @@ function OrderCard({
           {order.items.map((item, i) => (
             <li key={i} className="flex justify-between">
               <span>{item.quantity}× {item.productName}</span>
-              <span className="text-muted-foreground">{fmt(item.unitPrice)}</span>
+              <span className="text-muted-foreground">{fmt(item.unitPrice * item.quantity)}</span>
             </li>
           ))}
         </ul>
+
+        {/* Delivery fee breakdown */}
+        {order.deliveryFee > 0 && (
+          <div className="text-xs text-muted-foreground space-y-0.5 border-t pt-2">
+            <div className="flex justify-between">
+              <span>Subtotal</span>
+              <span>{fmt(order.subtotal)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span>Taxa de entrega</span>
+              <span>{fmt(order.deliveryFee)}</span>
+            </div>
+          </div>
+        )}
 
         {/* Customer note */}
         {order.customerNote && (

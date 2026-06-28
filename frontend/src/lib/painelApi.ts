@@ -7,6 +7,8 @@ export type OrderItemData = {
 export type OrderData = {
   id: string;
   status: string;
+  subtotal: number;
+  deliveryFee: number;
   total: number;
   createdAt: string;
   customerNote: string | null;

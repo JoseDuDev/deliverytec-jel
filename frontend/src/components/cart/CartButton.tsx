@@ -3,13 +3,13 @@ import { useState } from 'react';
 import { useCart } from '@/store/cart';
 import CartDrawer from './CartDrawer';
 
-export default function CartButton({ slug }: { slug: string }) {
+export default function CartButton({ slug, isOpen }: { slug: string; isOpen: boolean }) {
   const [open, setOpen] = useState(false);
   const items = useCart((s) => s.items);
   const total = useCart((s) => s.total);
   const count = items.reduce((sum, i) => sum + i.quantity, 0);
 
-  if (count === 0) return null;
+  if (count === 0 || !isOpen) return null;
 
   return (
     <>

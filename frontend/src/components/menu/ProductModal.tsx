@@ -14,12 +14,14 @@ export default function ProductModal({
   establishmentId,
   slug,
   deliveryFee,
+  isOpen,
   onClose,
 }: {
   product: Product;
   establishmentId: string;
   slug: string;
   deliveryFee: number;
+  isOpen: boolean;
   onClose: () => void;
 }) {
   const [quantity, setQuantity] = useState(1);
@@ -116,9 +118,10 @@ export default function ProductModal({
           </div>
           <Button
             onClick={handleAdd}
-            className="rounded-full bg-orange-500 hover:bg-orange-600 text-white px-6"
+            disabled={!isOpen}
+            className="rounded-full bg-orange-500 hover:bg-orange-600 text-white px-6 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Adicionar · R$ {unitTotal.toFixed(2).replace('.', ',')}
+            {isOpen ? `Adicionar · R$ ${unitTotal.toFixed(2).replace('.', ',')}` : 'Estabelecimento fechado'}
           </Button>
         </div>
       </SheetContent>

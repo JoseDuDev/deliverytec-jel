@@ -172,7 +172,9 @@ internal static class PainelOrdersEndpoints
     }
 
     private static OrderResponse MapOrder(Order o) =>
-        new(o.Id, o.Status.ToString(), o.Total, o.CreatedAt, o.CustomerNote,
+        new(o.Id, o.Status.ToString(),
+            o.Items.Sum(i => i.Total), o.DeliveryFee, o.Total,
+            o.CreatedAt, o.CustomerNote,
             o.Items.Select(i => new OrderItemResponse(i.ProductName, i.Quantity, i.UnitPrice)));
 
     private static Guid? ValidateToken(string? token, IConfiguration config)
@@ -203,7 +205,9 @@ internal static class PainelOrdersEndpoints
 
 internal record OrderItemResponse(string ProductName, int Quantity, decimal UnitPrice);
 internal record OrderResponse(
-    Guid Id, string Status, decimal Total, DateTimeOffset CreatedAt,
-    string? CustomerNote, IEnumerable<OrderItemResponse> Items);
+    Guid Id, string Status,
+    decimal Subtotal, decimal DeliveryFee, decimal Total,
+    DateTimeOffset CreatedAt, string? CustomerNote,
+    IEnumerable<OrderItemResponse> Items);
 
 internal enum OrderAction { Accept, StartDelivery, Complete, Cancel }

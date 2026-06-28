@@ -22,7 +22,7 @@ export default function LoginPage() {
     try {
       const res = await login(email, password);
       saveToken(res.token);
-      router.push('/');
+      router.push('/conta');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro no login');
     } finally {

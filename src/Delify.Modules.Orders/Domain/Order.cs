@@ -15,9 +15,16 @@ public sealed class Order : AggregateRoot
 
     private Order() { }
 
-    public static Order Create(Guid tenantId, Guid establishmentId, decimal deliveryFee = 0, Guid? customerId = null)
+    public static Order Create(Guid tenantId, Guid establishmentId, decimal deliveryFee = 0, string? note = null, Guid? customerId = null)
     {
-        return new Order { TenantId = tenantId, EstablishmentId = establishmentId, DeliveryFee = deliveryFee >= 0 ? deliveryFee : 0, CustomerId = customerId };
+        return new Order
+        {
+            TenantId = tenantId,
+            EstablishmentId = establishmentId,
+            DeliveryFee = deliveryFee >= 0 ? deliveryFee : 0,
+            CustomerNote = note,
+            CustomerId = customerId,
+        };
     }
 
     public void AddItem(Guid productId, string productName, int quantity, decimal unitPrice)

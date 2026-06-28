@@ -38,7 +38,7 @@ export type OrderStatusEvent = {
 
 export type TokenResponse = { token: string; expiresAt: string };
 
-function getToken(): string | null {
+export function getToken(): string | null {
   if (typeof window === 'undefined') return null;
   return localStorage.getItem('delify_token');
 }
@@ -110,4 +110,20 @@ export async function placeOrder(body: {
 
 export function saveToken(token: string): void {
   localStorage.setItem('delify_token', token);
+}
+
+export type MyOrderSummary = {
+  id: string;
+  status: string;
+  total: number;
+  deliveryFee: number;
+  createdAt: string;
+  establishment: { name: string; slug: string } | null;
+  items: { productName: string; quantity: number }[];
+};
+
+export async function getMyOrders(): Promise<MyOrderSummary[]> {
+  const res = await fetch('/bff/orders/mine', { headers: authHeaders() });
+  if (!res.ok) throw new Error('Erro ao buscar pedidos');
+  return res.json();
 }

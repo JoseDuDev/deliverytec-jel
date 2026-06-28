@@ -5,6 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
 
 const schema = z.object({
   name: z.string().min(3, 'Nome obrigatório'),
@@ -15,6 +16,7 @@ const schema = z.object({
   neighborhood: z.string().min(2, 'Bairro obrigatório'),
   city: z.string().min(2, 'Cidade obrigatória'),
   complement: z.string().optional(),
+  note: z.string().max(200).optional(),
 });
 
 export type CheckoutFormData = z.infer<typeof schema>;
@@ -79,6 +81,17 @@ export default function GuestForm({
         error={errors.neighborhood?.message} registration={register('neighborhood')} />
       <Field id="city" label="Cidade" placeholder="São Paulo"
         error={errors.city?.message} registration={register('city')} />
+
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="note">Observações (opcional)</Label>
+        <Textarea
+          id="note"
+          placeholder="Ex: sem cebola, não toque a campainha..."
+          rows={2}
+          {...register('note')}
+        />
+        {errors.note && <p className="text-xs text-destructive">{errors.note.message}</p>}
+      </div>
 
       <Button
         type="submit"

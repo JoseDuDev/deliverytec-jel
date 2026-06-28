@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Delify.Modules.Bff.Models;
 using Delify.Modules.Catalog.Infrastructure;
 using Delify.Modules.Orders.Domain;
@@ -21,6 +22,7 @@ internal static class OrderEndpoints
     {
         app.MapPost("/bff/orders", async (
             PlaceOrderRequest req,
+            ClaimsPrincipal user,
             CatalogDbContext catalogDb,
             OrdersDbContext ordersDb,
             PaymentsDbContext paymentsDb,
@@ -28,6 +30,11 @@ internal static class OrderEndpoints
             IOrderTrackingNotifier trackingNotifier,
             IBus bus) =>
         {
+            Guid? customerId = null;
+            var sub = user.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                   ?? user.FindFirst("sub")?.Value;
+            if (Guid.TryParse(sub, out var parsedId))
+                customerId = parsedId;
             // 1. Buscar o Establishment
             var establishment = await catalogDb.Establishments
                 .AsNoTracking()
@@ -50,7 +57,7 @@ internal static class OrderEndpoints
             // 3. Criar o Order
             // CustomerNote has internal set — only settable from within the Orders module assembly.
             // The note is passed via OrderCreatedIntegrationEvent so the Orders handler can apply it.
-            var order = Order.Create(establishment.TenantId, req.EstablishmentId, establishment.DeliveryFee);
+            var order = Order.Create(establishment.TenantId, req.EstablishmentId, establishment.DeliveryFee, req.Note, customerId);
 
             foreach (var itemReq in req.Items)
             {

@@ -1,3 +1,5 @@
+using Delify.Modules.Catalog.Infrastructure;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
@@ -5,6 +7,8 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace Delify.Modules.Catalog.Infrastructure.Migrations
 {
     /// <inheritdoc />
+    [DbContext(typeof(CatalogDbContext))]
+    [Migration("20260627000000_AddDeliveryFeeToEstablishment")]
     public partial class AddDeliveryFeeToEstablishment : Migration
     {
         /// <inheritdoc />

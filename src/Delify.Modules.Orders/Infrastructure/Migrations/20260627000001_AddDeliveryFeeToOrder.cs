@@ -1,3 +1,5 @@
+using Delify.Modules.Orders.Infrastructure;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
@@ -5,6 +7,8 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace Delify.Modules.Orders.Infrastructure.Migrations
 {
     /// <inheritdoc />
+    [DbContext(typeof(OrdersDbContext))]
+    [Migration("20260627000001_AddDeliveryFeeToOrder")]
     public partial class AddDeliveryFeeToOrder : Migration
     {
         /// <inheritdoc />

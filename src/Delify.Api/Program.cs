@@ -5,6 +5,8 @@ using Delify.Modules.Catalog;
 using Delify.Modules.Catalog.Infrastructure;
 using Delify.Modules.Delivery;
 using Delify.Modules.Delivery.Infrastructure;
+using Delify.Modules.Dinein;
+using Delify.Modules.Dinein.Infrastructure;
 using Delify.Modules.Identity;
 using Delify.Modules.Identity.Infrastructure;
 using Delify.Modules.Orders;
@@ -31,6 +33,7 @@ var modules = new List<IModule>
     new OrdersModule(),
     new PaymentsModule(),
     new DeliveryModule(),
+    new DineinModule(),
     new BffModule()          // BFF por último para override do IOrderTrackingNotifier
 };
 
@@ -80,6 +83,7 @@ using (var scope = app.Services.CreateScope())
     await sp.GetRequiredService<OrdersDbContext>().Database.MigrateAsync();
     await sp.GetRequiredService<PaymentsDbContext>().Database.MigrateAsync();
     await sp.GetRequiredService<DeliveryDbContext>().Database.MigrateAsync();
+    await sp.GetRequiredService<DineinDbContext>().Database.MigrateAsync();
 }
 
 if (app.Environment.IsDevelopment())

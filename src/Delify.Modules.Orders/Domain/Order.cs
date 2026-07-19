@@ -7,6 +7,8 @@ public sealed class Order : AggregateRoot
 {
     public Guid EstablishmentId { get; private set; }
     public Guid? CustomerId { get; private set; }
+    public OrderType Type { get; private set; } = OrderType.Delivery;
+    public Guid? TableSessionId { get; private set; }
     public OrderStatus Status { get; private set; } = OrderStatus.PendingPayment;
     public string? CustomerNote { get; internal set; }
     public ICollection<OrderItem> Items { get; private set; } = [];
@@ -24,6 +26,22 @@ public sealed class Order : AggregateRoot
             DeliveryFee = deliveryFee >= 0 ? deliveryFee : 0,
             CustomerNote = note,
             CustomerId = customerId,
+        };
+    }
+
+    // Dine-in order: no upfront payment. Goes straight to the kitchen board
+    // (AwaitingConfirmation) and is billed later as part of the table session.
+    public static Order CreateDinein(Guid tenantId, Guid establishmentId, Guid tableSessionId, string? note = null)
+    {
+        return new Order
+        {
+            TenantId = tenantId,
+            EstablishmentId = establishmentId,
+            Type = OrderType.Dinein,
+            TableSessionId = tableSessionId,
+            Status = OrderStatus.AwaitingConfirmation,
+            DeliveryFee = 0,
+            CustomerNote = note,
         };
     }
 

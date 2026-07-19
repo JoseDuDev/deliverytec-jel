@@ -194,6 +194,72 @@ export async function deleteProduto(id: string): Promise<void> {
   }
 }
 
+// ── Mesas ──────────────────────────────────────────────────────────────────────
+
+export type MesaData = {
+  id: string;
+  number: string;
+  qrToken: string;
+  status: string;
+  sessionId: string | null;
+  openedAt: string | null;
+  orderCount: number;
+  sessionTotal: number;
+};
+
+export async function getMesas(): Promise<MesaData[]> {
+  const res = await fetch('/painel-api/mesas/', { headers: painelHeaders() });
+  return handleResponse(res);
+}
+
+export async function createMesa(number: string): Promise<MesaData> {
+  const res = await fetch('/painel-api/mesas/', {
+    method: 'POST',
+    headers: painelHeaders(),
+    body: JSON.stringify({ number }),
+  });
+  return handleResponse(res);
+}
+
+export async function renameMesa(id: string, number: string): Promise<MesaData> {
+  const res = await fetch(`/painel-api/mesas/${id}`, {
+    method: 'PATCH',
+    headers: painelHeaders(),
+    body: JSON.stringify({ number }),
+  });
+  return handleResponse(res);
+}
+
+export async function regenerateMesaQr(id: string): Promise<{ id: string; qrToken: string }> {
+  const res = await fetch(`/painel-api/mesas/${id}/qr`, {
+    method: 'POST',
+    headers: painelHeaders(),
+  });
+  return handleResponse(res);
+}
+
+export async function liberarMesa(id: string): Promise<void> {
+  const res = await fetch(`/painel-api/mesas/${id}/liberar`, {
+    method: 'POST',
+    headers: painelHeaders(),
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(text || `HTTP ${res.status}`);
+  }
+}
+
+export async function deleteMesa(id: string): Promise<void> {
+  const res = await fetch(`/painel-api/mesas/${id}`, {
+    method: 'DELETE',
+    headers: painelHeaders(),
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(text || `HTTP ${res.status}`);
+  }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 
 export async function updateEstabelecimento(data: {

@@ -60,6 +60,16 @@ export default function ProductModal({
   return (
     <Sheet open onOpenChange={(open) => !open && onClose()}>
       <SheetContent side="bottom" className="rounded-t-2xl max-w-lg mx-auto px-6 pb-8">
+        {product.imageUrl && (
+          <img
+            key={product.imageUrl}
+            src={product.imageUrl}
+            alt={product.name}
+            className="mb-4 h-48 w-full rounded-xl object-cover"
+            onError={(e) => { e.currentTarget.style.display = 'none'; }}
+          />
+        )}
+
         <SheetHeader className="mb-4 text-left">
           <SheetTitle>{product.name}</SheetTitle>
         </SheetHeader>

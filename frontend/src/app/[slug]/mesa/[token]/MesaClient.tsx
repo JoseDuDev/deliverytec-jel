@@ -239,9 +239,15 @@ export default function MesaClient({ token }: { token: string }) {
             <h2 className="mb-3 text-lg font-bold text-gray-800">{cat.name}</h2>
             <div className="flex flex-col gap-3">
               {cat.products.map((product) => (
+                // Clicar em qualquer lugar do card abre a ficha do prato; o botão
+                // "Adicionar" segue como atalho de adição rápida (stopPropagation).
                 <div
                   key={product.id}
-                  className="flex items-center justify-between gap-3 rounded-xl bg-white p-3 shadow-sm"
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setPicking(product)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setPicking(product); } }}
+                  className="flex cursor-pointer items-center justify-between gap-3 rounded-xl bg-white p-3 text-left shadow-sm transition-shadow hover:shadow-md"
                 >
                   {product.imageUrl && (
                     <img
@@ -267,11 +273,12 @@ export default function MesaClient({ token }: { token: string }) {
                   <Button
                     size="sm"
                     disabled={!data.isOpen}
-                    onClick={() =>
+                    onClick={(e) => {
+                      e.stopPropagation();
                       product.complements.length > 0
                         ? setPicking(product)
-                        : addLine(product, 1, [])
-                    }
+                        : addLine(product, 1, []);
+                    }}
                     className="shrink-0 rounded-full bg-orange-500 px-4 text-white hover:bg-orange-600 disabled:opacity-50"
                   >
                     Adicionar
@@ -417,6 +424,16 @@ function ComplementPicker({
   return (
     <Sheet open onOpenChange={(open) => !open && onClose()}>
       <SheetContent side="bottom" className="mx-auto max-w-lg rounded-t-2xl px-6 pb-8">
+        {product.imageUrl && (
+          <img
+            key={product.imageUrl}
+            src={product.imageUrl}
+            alt={product.name}
+            className="mb-4 h-48 w-full rounded-xl object-cover"
+            onError={(e) => { e.currentTarget.style.display = 'none'; }}
+          />
+        )}
+
         <SheetHeader className="mb-4 text-left">
           <SheetTitle>{product.name}</SheetTitle>
         </SheetHeader>
@@ -425,26 +442,33 @@ function ComplementPicker({
           <p className="mb-4 text-sm text-muted-foreground">{product.description}</p>
         )}
 
-        <p className="mb-3 text-sm font-semibold">Adicionais</p>
-        <div className="mb-4 flex flex-col gap-2">
-          {product.complements.map((c) => (
-            <label
-              key={c.id}
-              className="flex cursor-pointer items-center justify-between py-2"
-            >
-              <div className="flex items-center gap-3">
-                <Checkbox
-                  checked={selected.includes(c.id)}
-                  onCheckedChange={() => toggle(c.id)}
-                  className="border-orange-300 data-[state=checked]:border-orange-500 data-[state=checked]:bg-orange-500"
-                />
-                <span className="text-sm">{c.name}</span>
-              </div>
-              <span className="text-sm text-orange-500">+{brl(c.price)}</span>
-            </label>
-          ))}
-        </div>
-        <Separator className="mb-4" />
+        {/* A ficha agora abre para qualquer produto, então a seção de adicionais
+            precisa do guard — senão sobra um título "Adicionais" vazio com o
+            separador solto para quem não tem nenhum. */}
+        {product.complements.length > 0 && (
+          <>
+            <p className="mb-3 text-sm font-semibold">Adicionais</p>
+            <div className="mb-4 flex flex-col gap-2">
+              {product.complements.map((c) => (
+                <label
+                  key={c.id}
+                  className="flex cursor-pointer items-center justify-between py-2"
+                >
+                  <div className="flex items-center gap-3">
+                    <Checkbox
+                      checked={selected.includes(c.id)}
+                      onCheckedChange={() => toggle(c.id)}
+                      className="border-orange-300 data-[state=checked]:border-orange-500 data-[state=checked]:bg-orange-500"
+                    />
+                    <span className="text-sm">{c.name}</span>
+                  </div>
+                  <span className="text-sm text-orange-500">+{brl(c.price)}</span>
+                </label>
+              ))}
+            </div>
+            <Separator className="mb-4" />
+          </>
+        )}
 
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">

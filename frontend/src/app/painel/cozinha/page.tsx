@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  getOrders, acceptOrder, startDeliveryOrder, completeOrder,
+  getOrders, acceptOrder, startDeliveryOrder, completeOrder, serveOrder,
   getPainelToken, OrderData,
 } from '@/lib/painelApi';
 import { Maximize2, Minimize2, ArrowLeft, RefreshCw } from 'lucide-react';
@@ -47,6 +47,8 @@ const COLUMNS = [
     text: 'text-white',
     card: 'border-blue-200 bg-blue-50',
     action: { label: '🛵 Saiu', fn: startDeliveryOrder, cls: 'bg-blue-500 hover:bg-blue-600 text-white' },
+    // Pedido de mesa não tem entrega: o runner leva o prato e encerra o pedido.
+    dineinAction: { label: '✅ Entregue na mesa', fn: serveOrder, cls: 'bg-purple-600 hover:bg-purple-700 text-white' },
   },
   {
     key: 'InDelivery',
@@ -83,11 +85,22 @@ function KitchenCard({
   return (
     <div className={`rounded-2xl border-2 ${cardCls} p-4 flex flex-col gap-3`}>
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <span className="font-mono text-lg font-bold tracking-widest">
-          #{order.id.slice(0, 6).toUpperCase()}
-        </span>
-        <span className="text-sm font-semibold text-muted-foreground bg-white/70 rounded-full px-3 py-0.5">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          {order.tableNumber ? (
+            <span className="shrink-0 rounded-md bg-purple-600 px-2 py-0.5 text-base font-black uppercase tracking-wide text-white">
+              🍽 Mesa {order.tableNumber}
+            </span>
+          ) : (
+            <span className="shrink-0 rounded-md bg-gray-700 px-2 py-0.5 text-xs font-bold uppercase tracking-wide text-white">
+              🛵 Entrega
+            </span>
+          )}
+          <span className="font-mono text-sm font-bold tracking-widest text-muted-foreground truncate">
+            #{order.id.slice(0, 6).toUpperCase()}
+          </span>
+        </div>
+        <span className="shrink-0 text-sm font-semibold text-muted-foreground bg-white/70 rounded-full px-3 py-0.5">
           {age}
         </span>
       </div>
@@ -251,7 +264,11 @@ export default function CozinhaPage() {
                     <KitchenCard
                       key={order.id}
                       order={order}
-                      action={col.action}
+                      action={
+                        order.type === 'Dinein' && 'dineinAction' in col
+                          ? col.dineinAction
+                          : col.action
+                      }
                       cardCls={col.card}
                       onDone={handleDone}
                     />

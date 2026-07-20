@@ -7,6 +7,10 @@ export type OrderItemData = {
 export type OrderData = {
   id: string;
   status: string;
+  /** 'Delivery' | 'Dinein' */
+  type: string;
+  /** Número da mesa quando type === 'Dinein'; null em delivery */
+  tableNumber: string | null;
   subtotal: number;
   deliveryFee: number;
   total: number;
@@ -122,6 +126,8 @@ export const acceptOrder        = (id: string) => orderAction(id, 'accept');
 export const startDeliveryOrder = (id: string) => orderAction(id, 'start-delivery');
 export const completeOrder      = (id: string) => orderAction(id, 'complete');
 export const cancelOrder        = (id: string) => orderAction(id, 'cancel');
+/** Dine-in: vai direto de "em preparo" para "entregue", sem leg de entrega. */
+export const serveOrder         = (id: string) => orderAction(id, 'servir');
 
 // ── Cardápio ─────────────────────────────────────────────────────────────────
 

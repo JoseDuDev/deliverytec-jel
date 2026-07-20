@@ -63,6 +63,16 @@ public sealed class Order : AggregateRoot
     public void Accept() => Transition(OrderStatus.AwaitingConfirmation, OrderStatus.InPreparation);
     public void StartDelivery() => Transition(OrderStatus.InPreparation, OrderStatus.InDelivery);
     public void Complete() => Transition(OrderStatus.InDelivery, OrderStatus.Delivered);
+
+    // Dine-in has no delivery leg: the runner takes the plate to the table.
+    // Goes straight from the kitchen to Delivered.
+    public void ServeAtTable()
+    {
+        if (Type != OrderType.Dinein)
+            throw new InvalidOperationException("Only dine-in orders can be served at the table.");
+        Transition(OrderStatus.InPreparation, OrderStatus.Delivered);
+    }
+
     public void Cancel() { Status = OrderStatus.Cancelled; UpdatedAt = DateTimeOffset.UtcNow; }
 
     private void Transition(OrderStatus from, OrderStatus to)

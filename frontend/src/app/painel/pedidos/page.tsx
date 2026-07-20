@@ -1,7 +1,7 @@
 'use client';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  getOrders, acceptOrder, startDeliveryOrder, completeOrder, cancelOrder,
+  getOrders, acceptOrder, startDeliveryOrder, completeOrder, cancelOrder, serveOrder,
   getPainelToken, OrderData,
 } from '@/lib/painelApi';
 import { Badge } from '@/components/ui/badge';
@@ -58,6 +58,11 @@ function OrderCard({
     <Card className={`border ${STATUS_COLOR[order.status] ?? ''}`}>
       <CardHeader className="pb-2 pt-4 px-4 flex flex-row items-center justify-between space-y-0">
         <div className="flex items-center gap-2">
+          {order.tableNumber && (
+            <Badge className="bg-purple-600 hover:bg-purple-600 text-white">
+              🍽 Mesa {order.tableNumber}
+            </Badge>
+          )}
           <CardTitle className="text-sm font-mono text-muted-foreground">
             #{order.id.slice(0, 8).toUpperCase()}
           </CardTitle>
@@ -114,10 +119,17 @@ function OrderCard({
           )}
           {order.status === 'InPreparation' && (
             <>
-              <Button size="sm" disabled={busy} onClick={() => handle('start-delivery')}
-                className="bg-blue-500 hover:bg-blue-600 text-white">
-                🛵 Saiu para entrega
-              </Button>
+              {order.type === 'Dinein' ? (
+                <Button size="sm" disabled={busy} onClick={() => handle('servir')}
+                  className="bg-purple-600 hover:bg-purple-700 text-white">
+                  ✅ Entregue na mesa
+                </Button>
+              ) : (
+                <Button size="sm" disabled={busy} onClick={() => handle('start-delivery')}
+                  className="bg-blue-500 hover:bg-blue-600 text-white">
+                  🛵 Saiu para entrega
+                </Button>
+              )}
               <Button size="sm" variant="outline" disabled={busy} onClick={() => handle('cancel')}
                 className="text-destructive hover:bg-destructive/10 border-destructive/30">
                 Cancelar
@@ -185,6 +197,7 @@ export default function PedidosPage() {
       accept:         acceptOrder,
       'start-delivery': startDeliveryOrder,
       complete:       completeOrder,
+      servir:         serveOrder,
       cancel:         cancelOrder,
     };
 

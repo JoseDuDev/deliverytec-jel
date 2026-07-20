@@ -11,8 +11,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.0" />
-    <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.7.0" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.*" />
+    <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.*" />
     <PackageReference Include="MassTransit" Version="8.*" />
   </ItemGroup>
 
@@ -22,6 +22,7 @@
     <ProjectReference Include="..\Delify.Modules.Catalog\Delify.Modules.Catalog.csproj" />
     <ProjectReference Include="..\Delify.Modules.Orders\Delify.Modules.Orders.csproj" />
     <ProjectReference Include="..\Delify.Modules.Payments\Delify.Modules.Payments.csproj" />
+    <ProjectReference Include="..\Delify.Modules.Dinein\Delify.Modules.Dinein.csproj" />
   </ItemGroup>
 
 </Project>

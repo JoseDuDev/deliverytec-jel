@@ -241,6 +241,7 @@ export default function MesaClient({ token }: { token: string }) {
                 >
                   {product.imageUrl && (
                     <img
+                      key={product.imageUrl}
                       src={product.imageUrl}
                       alt={product.name}
                       loading="lazy"

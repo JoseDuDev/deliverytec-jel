@@ -18,6 +18,7 @@ export default function ConfiguracoesPage() {
   const [name, setName]               = useState('');
   const [description, setDescription] = useState('');
   const [logoUrl, setLogoUrl]         = useState('');
+  const [logoError, setLogoError]     = useState(false);
   const [deliveryFee, setDeliveryFee] = useState(0);
   const [serviceFeeEnabled, setServiceFeeEnabled] = useState(true);
   const [serviceFeePercent, setServiceFeePercent] = useState(10);
@@ -29,6 +30,7 @@ export default function ConfiguracoesPage() {
         setName(d.name);
         setDescription(d.description ?? '');
         setLogoUrl(d.logoUrl ?? '');
+        setLogoError(false);
         setDeliveryFee(d.deliveryFee ?? 0);
         setServiceFeeEnabled(d.serviceFeeEnabled ?? true);
         setServiceFeePercent(d.serviceFeePercent ?? 10);
@@ -154,16 +156,27 @@ export default function ConfiguracoesPage() {
                 id="logoUrl"
                 type="url"
                 value={logoUrl}
-                onChange={(e) => setLogoUrl(e.target.value)}
+                onChange={(e) => { setLogoUrl(e.target.value); setLogoError(false); }}
                 placeholder="https://exemplo.com/logo.png"
               />
-              {logoUrl && (
+              {logoUrl && !logoError && (
+                // key força um <img> novo a cada URL. Sem isso, os valores
+                // incompletos digitados até aqui ("h", "ht", "http…") falham,
+                // o elemento é reaproveitado e a logo nunca volta a aparecer.
                 <img
+                  key={logoUrl}
                   src={logoUrl}
                   alt="Preview da logo"
                   className="mt-2 h-16 w-16 rounded-md object-cover border"
-                  onError={(e) => (e.currentTarget.style.display = 'none')}
+                  onError={() => setLogoError(true)}
                 />
+              )}
+              {logoUrl && logoError && (
+                <p className="mt-1 text-xs text-amber-700">
+                  Não consegui carregar essa imagem. O link precisa apontar direto para o
+                  arquivo (terminando em .jpg, .png, .webp…), não para a página onde ela
+                  aparece. Na imagem, use “Copiar endereço da imagem”.
+                </p>
               )}
             </div>
 

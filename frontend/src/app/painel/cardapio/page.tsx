@@ -376,7 +376,9 @@ export default function CardapioPage() {
                 {cat.products.map((prod) => (
                   <div key={prod.id} className="flex items-center gap-3 px-4 py-3 border-b last:border-b-0 hover:bg-muted/30">
                     {prod.photoUrl && (
-                      <img src={prod.photoUrl} alt={prod.name}
+                      // key: sem ele o elemento é reaproveitado e, se a URL antiga
+                      // tinha falhado, corrigi-la não traz a miniatura de volta.
+                      <img key={prod.photoUrl} src={prod.photoUrl} alt={prod.name}
                         className="h-10 w-10 rounded object-cover shrink-0 border"
                         onError={(e) => (e.currentTarget.style.display = 'none')} />
                     )}

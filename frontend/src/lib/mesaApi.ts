@@ -55,7 +55,34 @@ export type CloseBillResponse = {
   serviceFeeApplied: boolean;
   pix: Pix;
 };
-export type ContaStatus = { paid: boolean; sessionStatus: string; total: number };
+export type BillShare = {
+  index: number;
+  amount: number;
+  paid: boolean;
+  hasPix: boolean;
+};
+
+export type SplitBillResponse = {
+  sessionId: string;
+  subtotal: number;
+  serviceFee: number;
+  total: number;
+  serviceFeeApplied: boolean;
+  people: number;
+  shares: BillShare[];
+};
+
+export type SharePixResponse = { index: number; amount: number; pix: Pix };
+
+export type ContaStatus = {
+  paid: boolean;
+  sessionStatus: string;
+  total: number;
+  paidAmount: number;
+  paidShares: number;
+  totalShares: number;
+  shares: BillShare[];
+};
 
 export type PlaceMesaOrderItem = {
   productId: string;
@@ -130,7 +157,45 @@ export async function getContaStatus(sessionId: string): Promise<ContaStatus> {
   return res.json();
 }
 
+export async function dividirConta(
+  token: string,
+  data: { people: number; waiveServiceFee: boolean },
+): Promise<SplitBillResponse> {
+  const res = await fetch(`/bff/mesa/${token}/conta/dividir`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => null);
+    throw new Error(err?.error || 'Erro ao dividir a conta');
+  }
+  return res.json();
+}
+
+export async function gerarPixDaParte(
+  token: string,
+  index: number,
+  data: { cpf?: string; name?: string } = {},
+): Promise<SharePixResponse> {
+  const res = await fetch(`/bff/mesa/${token}/conta/parte/${index}/pix`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ cpf: data.cpf ?? null, name: data.name ?? null }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => null);
+    throw new Error(err?.error || 'Erro ao gerar o PIX da sua parte');
+  }
+  return res.json();
+}
+
 // Apenas em dev: simula a confirmação do PIX da comanda.
 export async function simularPagamentoComanda(sessionId: string): Promise<void> {
   await fetch(`/bff/dev/simulate-payment-session/${sessionId}`, { method: 'POST' });
+}
+
+// Apenas em dev: simula o pagamento de uma parte da comanda dividida.
+export async function simularPagamentoParte(sessionId: string, index: number): Promise<void> {
+  await fetch(`/bff/dev/simulate-payment-share/${sessionId}/${index}`, { method: 'POST' });
 }

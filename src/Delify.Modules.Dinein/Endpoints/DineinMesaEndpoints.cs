@@ -209,21 +209,37 @@ internal static class DineinMesaEndpoints
             var serviceFee = applyFee ? Math.Round(subtotal * establishment.ServiceFeePercent / 100m, 2) : 0m;
             var total = subtotal + serviceFee;
 
-            // Reaproveita um PIX pendente da mesma comanda, se já houver.
+            // Se a comanda já foi dividida, o pagamento é por parte — não dá pra
+            // gerar uma cobrança do valor cheio por cima das partes.
+            if (await paymentsDb.Payments.AnyAsync(p =>
+                    p.TableSessionId == session.Id && p.ShareIndex != null && p.Status != PaymentStatus.Failed))
+                return Results.Conflict(new { error = "Esta comanda foi dividida. Pague pelas partes." });
+
+            // Reaproveita o PIX pendente da comanda — mas só se o valor ainda bater.
+            // A mesa pode ter pedido outra rodada depois de gerar o PIX; nesse caso
+            // a cobrança antiga está defasada e é invalidada em vez de reexibida.
             var pending = await paymentsDb.Payments
-                .Where(p => p.TableSessionId == session.Id && p.Status != PaymentStatus.Confirmed)
+                .Where(p => p.TableSessionId == session.Id
+                         && p.ShareIndex == null
+                         && p.Status == PaymentStatus.Pending)
                 .OrderByDescending(p => p.CreatedAt)
                 .FirstOrDefaultAsync();
 
             if (pending is not null)
             {
-                return Results.Ok(new CloseBillResponse(
-                    session.Id, subtotal, pending.Amount - subtotal, pending.Amount, applyFee,
-                    new PixDto(pending.PixQrCode ?? "", pending.PixCopyPaste ?? "", pending.CreatedAt.AddHours(24))));
+                if (pending.Amount == total && pending.PixCopyPaste is not null)
+                {
+                    return Results.Ok(new CloseBillResponse(
+                        session.Id, subtotal, serviceFee, total, applyFee,
+                        new PixDto(pending.PixQrCode ?? "", pending.PixCopyPaste, pending.CreatedAt.AddHours(24))));
+                }
+
+                pending.Void();
             }
 
-            var pix = await gateway.CreatePixAsync(new PixPaymentRequest(session.Id, total, req.Cpf ?? "", req.Name ?? ""));
             var payment = Payment.CreateForSession(session.TenantId, session.Id, total);
+            var pix = await gateway.CreatePixAsync(
+                new PixPaymentRequest(payment.Id, total, req.Cpf ?? "", req.Name ?? ""));
             payment.SetPixData(pix.GatewayId, pix.QrCode, pix.CopyPaste);
             paymentsDb.Payments.Add(payment);
             await paymentsDb.SaveChangesAsync();
@@ -236,24 +252,199 @@ internal static class DineinMesaEndpoints
         .WithTags("Mesa")
         .AllowAnonymous();
 
+        // ── Dividir a conta em N partes iguais ──────────────────────────────
+        app.MapPost("/bff/mesa/{token}/conta/dividir", async (
+            string token,
+            SplitBillReq req,
+            DineinDbContext db,
+            CatalogDbContext catalogDb,
+            OrdersDbContext ordersDb,
+            PaymentsDbContext paymentsDb) =>
+        {
+            if (req.People < 2 || req.People > BillSplit.MaxShares)
+                return Results.BadRequest(new { error = $"Divida entre 2 e {BillSplit.MaxShares} pessoas." });
+
+            var ctx = await LoadBillContextAsync(token, req.WaiveServiceFee, db, catalogDb, ordersDb);
+            if (ctx.Error is not null) return ctx.Error;
+            var (session, subtotal, serviceFee, total, applyFee) = ctx;
+
+            var existing = await paymentsDb.Payments
+                .Where(p => p.TableSessionId == session!.Id && p.Status != PaymentStatus.Failed)
+                .ToListAsync();
+
+            var shares = existing.Where(p => p.ShareIndex != null).ToList();
+            var anyPaid = shares.Any(p => p.Status == PaymentStatus.Confirmed);
+
+            // Já dividida e alguém já pagou: o rateio está congelado. Mudar o número
+            // de pessoas agora rebalancearia partes que já foram quitadas.
+            if (anyPaid)
+            {
+                var currentCount = shares[0].ShareCount!.Value;
+                if (currentCount != req.People || shares.Sum(p => p.Amount) != total)
+                    return Results.Conflict(new
+                    {
+                        error = "A conta já começou a ser paga e não pode ser redividida.",
+                        shareCount = currentCount
+                    });
+
+                return Results.Ok(BuildSplitResponse(session!.Id, subtotal, serviceFee, total, applyFee, shares));
+            }
+
+            // Ninguém pagou ainda: pode redividir à vontade. Invalida o que existia
+            // (partes antigas E qualquer PIX do valor cheio) e refaz o rateio.
+            foreach (var p in existing.Where(p => p.Status == PaymentStatus.Pending)) p.Void();
+
+            var amounts = BillSplit.Even(total, req.People);
+            var created = new List<Payment>(req.People);
+            for (var i = 0; i < amounts.Length; i++)
+            {
+                var share = Payment.CreateSessionShare(
+                    session!.TenantId, session.Id, amounts[i], i + 1, req.People);
+                created.Add(share);
+                paymentsDb.Payments.Add(share);
+            }
+
+            await paymentsDb.SaveChangesAsync();
+
+            return Results.Ok(BuildSplitResponse(session!.Id, subtotal, serviceFee, total, applyFee, created));
+        })
+        .WithName("MesaSplitBill")
+        .WithTags("Mesa")
+        .AllowAnonymous();
+
+        // ── Gerar o PIX de uma parte específica ─────────────────────────────
+        app.MapPost("/bff/mesa/{token}/conta/parte/{index:int}/pix", async (
+            string token,
+            int index,
+            SharePixReq req,
+            DineinDbContext db,
+            PaymentsDbContext paymentsDb,
+            IPaymentGateway gateway) =>
+        {
+            var table = await db.Tables.AsNoTracking().FirstOrDefaultAsync(t => t.QrToken == token);
+            if (table is null) return Results.NotFound(new { error = "Mesa não encontrada." });
+
+            var session = await db.Sessions.AsNoTracking()
+                .FirstOrDefaultAsync(s => s.TableId == table.Id && s.Status == SessionStatus.Open);
+            if (session is null) return Results.Conflict(new { error = "Não há comanda aberta nesta mesa." });
+
+            var share = await paymentsDb.Payments.FirstOrDefaultAsync(p =>
+                p.TableSessionId == session.Id && p.ShareIndex == index && p.Status != PaymentStatus.Failed);
+
+            if (share is null) return Results.NotFound(new { error = "Parte não encontrada. A conta foi dividida?" });
+            if (share.Status == PaymentStatus.Confirmed)
+                return Results.Conflict(new { error = "Esta parte já foi paga." });
+
+            // Reaproveita o PIX da parte — o valor de uma parte não muda depois de
+            // criada, então aqui o reuso é sempre seguro.
+            if (share.PixCopyPaste is not null)
+            {
+                return Results.Ok(new SharePixResponse(index, share.Amount,
+                    new PixDto(share.PixQrCode ?? "", share.PixCopyPaste, share.CreatedAt.AddHours(24))));
+            }
+
+            var pix = await gateway.CreatePixAsync(
+                new PixPaymentRequest(share.Id, share.Amount, req.Cpf ?? "", req.Name ?? ""));
+            share.SetPixData(pix.GatewayId, pix.QrCode, pix.CopyPaste);
+            await paymentsDb.SaveChangesAsync();
+
+            return Results.Ok(new SharePixResponse(index, share.Amount,
+                new PixDto(pix.QrCode, pix.CopyPaste, pix.ExpiresAt)));
+        })
+        .WithName("MesaSharePix")
+        .WithTags("Mesa")
+        .AllowAnonymous();
+
         // ── Status do pagamento da comanda (polling) ────────────────────────
         app.MapGet("/bff/conta/{sessionId:guid}/status", async (
             Guid sessionId, DineinDbContext db, PaymentsDbContext paymentsDb) =>
         {
             var session = await db.Sessions.AsNoTracking().FirstOrDefaultAsync(s => s.Id == sessionId);
-            var payment = await paymentsDb.Payments.AsNoTracking()
-                .Where(p => p.TableSessionId == sessionId)
-                .OrderByDescending(p => p.CreatedAt)
-                .FirstOrDefaultAsync();
 
-            var paid = payment?.Status == PaymentStatus.Confirmed || session?.Status == SessionStatus.Closed;
-            return Results.Ok(new ContaStatusResponse(paid, session?.Status.ToString() ?? "Unknown", payment?.Amount ?? 0));
+            var payments = await paymentsDb.Payments.AsNoTracking()
+                .Where(p => p.TableSessionId == sessionId && p.Status != PaymentStatus.Failed)
+                .OrderBy(p => p.ShareIndex).ThenByDescending(p => p.CreatedAt)
+                .ToListAsync();
+
+            var shares = payments.Where(p => p.ShareIndex != null).ToList();
+            var paidAmount = payments.Where(p => p.Status == PaymentStatus.Confirmed).Sum(p => p.Amount);
+
+            // A sessão fechada é a palavra final: cobre também o caso do staff ter
+            // liberado a mesa por fora do fluxo de pagamento.
+            var paid = session?.Status == SessionStatus.Closed
+                       || (payments.Count > 0 && payments.All(p => p.Status == PaymentStatus.Confirmed));
+
+            return Results.Ok(new ContaStatusResponse(
+                paid,
+                session?.Status.ToString() ?? "Unknown",
+                payments.Sum(p => p.Amount),
+                paidAmount,
+                shares.Count(p => p.Status == PaymentStatus.Confirmed),
+                shares.Count,
+                shares.Select(ToShareDto).ToList()));
         })
         .WithName("MesaContaStatus")
         .WithTags("Mesa")
         .AllowAnonymous();
 
         return app;
+    }
+
+    private static BillShareDto ToShareDto(Payment p) =>
+        new(p.ShareIndex!.Value, p.Amount, p.Status == PaymentStatus.Confirmed, p.PixCopyPaste is not null);
+
+    private static SplitBillResponse BuildSplitResponse(
+        Guid sessionId, decimal subtotal, decimal serviceFee, decimal total, bool applyFee,
+        IEnumerable<Payment> shares)
+    {
+        var ordered = shares.OrderBy(p => p.ShareIndex).ToList();
+        return new SplitBillResponse(
+            sessionId, subtotal, serviceFee, total, applyFee,
+            ordered.Count, ordered.Select(ToShareDto).ToList());
+    }
+
+    /// <summary>Resolve mesa → comanda aberta → totais com taxa. Compartilhado pelos fluxos de conta.</summary>
+    private static async Task<BillContext> LoadBillContextAsync(
+        string token, bool waiveServiceFee,
+        DineinDbContext db, CatalogDbContext catalogDb, OrdersDbContext ordersDb)
+    {
+        var table = await db.Tables.AsNoTracking().FirstOrDefaultAsync(t => t.QrToken == token);
+        if (table is null)
+            return BillContext.Fail(Results.NotFound(new { error = "Mesa não encontrada." }));
+
+        var session = await db.Sessions
+            .FirstOrDefaultAsync(s => s.TableId == table.Id && s.Status == SessionStatus.Open);
+        if (session is null)
+            return BillContext.Fail(Results.Conflict(new { error = "Não há comanda aberta nesta mesa." }));
+
+        var establishment = await catalogDb.Establishments.AsNoTracking()
+            .FirstOrDefaultAsync(e => e.Id == table.EstablishmentId);
+        if (establishment is null)
+            return BillContext.Fail(Results.NotFound(new { error = "Estabelecimento não encontrado." }));
+
+        var comanda = await BuildComandaAsync(session, ordersDb);
+        var subtotal = comanda.Total;
+        if (subtotal <= 0)
+            return BillContext.Fail(Results.Conflict(new { error = "A comanda está vazia." }));
+
+        var applyFee = establishment.ServiceFeeEnabled && !waiveServiceFee;
+        var serviceFee = applyFee ? Math.Round(subtotal * establishment.ServiceFeePercent / 100m, 2) : 0m;
+
+        return new BillContext(session, subtotal, serviceFee, subtotal + serviceFee, applyFee, null);
+    }
+
+    private readonly record struct BillContext(
+        TableSession? Session, decimal Subtotal, decimal ServiceFee, decimal Total, bool ApplyFee, IResult? Error)
+    {
+        internal static BillContext Fail(IResult error) => new(null, 0, 0, 0, false, error);
+
+        internal void Deconstruct(
+            out TableSession? session, out decimal subtotal, out decimal serviceFee,
+            out decimal total, out bool applyFee)
+        {
+            session = Session; subtotal = Subtotal; serviceFee = ServiceFee;
+            total = Total; applyFee = ApplyFee;
+        }
     }
 
     private static async Task<ComandaDto> BuildComandaAsync(TableSession? session, OrdersDbContext ordersDb)
@@ -297,4 +488,15 @@ internal record CallWaiterResponse(Guid CallId, bool AlreadyPending);
 internal record CloseBillReq(string? Cpf, string? Name, bool WaiveServiceFee);
 internal record PixDto(string QrCode, string CopyPaste, DateTimeOffset ExpiresAt);
 internal record CloseBillResponse(Guid SessionId, decimal Subtotal, decimal ServiceFee, decimal Total, bool ServiceFeeApplied, PixDto Pix);
-internal record ContaStatusResponse(bool Paid, string SessionStatus, decimal Total);
+
+internal record SplitBillReq(int People, bool WaiveServiceFee);
+internal record BillShareDto(int Index, decimal Amount, bool Paid, bool HasPix);
+internal record SplitBillResponse(
+    Guid SessionId, decimal Subtotal, decimal ServiceFee, decimal Total, bool ServiceFeeApplied,
+    int People, IReadOnlyList<BillShareDto> Shares);
+internal record SharePixReq(string? Cpf, string? Name);
+internal record SharePixResponse(int Index, decimal Amount, PixDto Pix);
+
+internal record ContaStatusResponse(
+    bool Paid, string SessionStatus, decimal Total,
+    decimal PaidAmount, int PaidShares, int TotalShares, IReadOnlyList<BillShareDto> Shares);

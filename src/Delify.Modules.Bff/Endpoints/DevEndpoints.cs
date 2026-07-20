@@ -1,3 +1,4 @@
+using Delify.Modules.Payments.Application;
 using Delify.Modules.Payments.Domain;
 using Delify.Modules.Payments.Infrastructure;
 using Delify.Shared.IntegrationEvents;
@@ -57,12 +58,14 @@ internal static class DevEndpoints
                 return Results.NotFound();
 
             var payment = await db.Payments
-                .Where(p => p.TableSessionId == sessionId)
+                .Where(p => p.TableSessionId == sessionId
+                         && p.ShareIndex == null
+                         && p.Status != PaymentStatus.Failed)
                 .OrderByDescending(p => p.CreatedAt)
                 .FirstOrDefaultAsync();
 
             if (payment is null)
-                return Results.NotFound(new { error = "Nenhum pagamento encontrado para esta comanda." });
+                return Results.NotFound(new { error = "Nenhum pagamento encontrado para esta comanda. Se ela foi dividida, use simulate-payment-share." });
 
             if (payment.Status != PaymentStatus.Confirmed)
             {
@@ -72,6 +75,46 @@ internal static class DevEndpoints
             }
 
             return Results.Ok(new { message = "Pagamento da comanda simulado.", sessionId, status = "Confirmed" });
+        })
+        .AllowAnonymous()
+        .WithTags("Dev");
+
+        // Simula o pagamento de UMA parte de uma comanda dividida. A comanda só é
+        // dada como paga quando a última parte cair — mesma regra do webhook real.
+        app.MapPost("/bff/dev/simulate-payment-share/{sessionId:guid}/{index:int}", async (
+            Guid sessionId,
+            int index,
+            PaymentsDbContext db,
+            IBus bus,
+            IHostEnvironment env) =>
+        {
+            if (!env.IsDevelopment())
+                return Results.NotFound();
+
+            var share = await db.Payments.FirstOrDefaultAsync(p =>
+                p.TableSessionId == sessionId && p.ShareIndex == index && p.Status != PaymentStatus.Failed);
+
+            if (share is null)
+                return Results.NotFound(new { error = $"Parte {index} não encontrada nesta comanda." });
+
+            if (share.Status != PaymentStatus.Confirmed)
+            {
+                share.ConfirmPayment(share.GatewayPaymentId ?? $"simulated_{share.Id}");
+                await db.SaveChangesAsync();
+
+                if (await SessionSettlement.IsFullySettledAsync(db, sessionId))
+                    await bus.Publish(new SessionPaidIntegrationEvent(sessionId, share.TenantId));
+            }
+
+            var settled = await SessionSettlement.IsFullySettledAsync(db, sessionId);
+            return Results.Ok(new
+            {
+                message = $"Parte {index} paga.",
+                sessionId,
+                index,
+                amount = share.Amount,
+                sessionSettled = settled
+            });
         })
         .AllowAnonymous()
         .WithTags("Dev");

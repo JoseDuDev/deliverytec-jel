@@ -1,4 +1,6 @@
 using Delify.Modules.Payments.Abstractions;
+using Delify.Modules.Payments.Application;
+using Delify.Modules.Payments.Domain;
 using Delify.Modules.Payments.Infrastructure;
 using Delify.Shared.IntegrationEvents;
 using MassTransit;
@@ -29,15 +31,25 @@ internal static class WebhookEndpoint
             var payment = await db.Payments
                 .FirstOrDefaultAsync(p => p.GatewayPaymentId == result.GatewayPaymentId);
 
-            if (payment is not null)
-            {
-                payment.ConfirmPayment(result.GatewayPaymentId);
-                await db.SaveChangesAsync();
+            if (payment is null) return Results.Ok();
 
-                if (payment.TableSessionId is Guid sessionId)
+            // O gateway reenvia callbacks. Confirmar de novo republicaria o evento
+            // e fecharia uma comanda que talvez já tenha sido reaberta.
+            if (payment.Status == PaymentStatus.Confirmed) return Results.Ok();
+
+            payment.ConfirmPayment(result.GatewayPaymentId);
+            await db.SaveChangesAsync();
+
+            if (payment.TableSessionId is Guid sessionId)
+            {
+                // Conta dividida: só avisa quando a última parte quitar, senão a
+                // mesa seria liberada com gente ainda devendo.
+                if (await SessionSettlement.IsFullySettledAsync(db, sessionId))
                     await bus.Publish(new SessionPaidIntegrationEvent(sessionId, payment.TenantId));
-                else if (payment.OrderId is Guid orderId)
-                    await bus.Publish(new PaymentConfirmedIntegrationEvent(orderId, payment.TenantId));
+            }
+            else if (payment.OrderId is Guid orderId)
+            {
+                await bus.Publish(new PaymentConfirmedIntegrationEvent(orderId, payment.TenantId));
             }
 
             return Results.Ok();

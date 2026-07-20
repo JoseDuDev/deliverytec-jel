@@ -8,9 +8,15 @@ import {
   fecharConta,
   getContaStatus,
   simularPagamentoComanda,
+  dividirConta,
+  gerarPixDaParte,
+  simularPagamentoParte,
   type MesaResponse,
   type MesaProduct,
   type CloseBillResponse,
+  type SplitBillResponse,
+  type SharePixResponse,
+  type BillShare,
 } from '@/lib/mesaApi';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
@@ -355,6 +361,7 @@ export default function MesaClient({ token }: { token: string }) {
       {showBill && (
         <FecharContaSheet
           token={token}
+          sessionId={data.comanda.sessionId}
           subtotal={data.comanda.total}
           serviceFeeEnabled={data.serviceFeeEnabled}
           serviceFeePercent={data.serviceFeePercent}
@@ -457,6 +464,7 @@ function ComplementPicker({
 
 function FecharContaSheet({
   token,
+  sessionId: openSessionId,
   subtotal,
   serviceFeeEnabled,
   serviceFeePercent,
@@ -464,17 +472,25 @@ function FecharContaSheet({
   onPaid,
 }: {
   token: string;
+  sessionId: string | null;
   subtotal: number;
   serviceFeeEnabled: boolean;
   serviceFeePercent: number;
   onClose: () => void;
   onPaid: () => void;
 }) {
-  const [step, setStep] = useState<'form' | 'pix' | 'paid'>('form');
+  const [step, setStep] = useState<'form' | 'pix' | 'shares' | 'sharePix' | 'paid'>('form');
+  const [mode, setMode] = useState<'full' | 'split'>('full');
+  const [people, setPeople] = useState(2);
   const [cpf, setCpf] = useState('');
   const [name, setName] = useState('');
   const [waive, setWaive] = useState(false);
   const [bill, setBill] = useState<CloseBillResponse | null>(null);
+  const [split, setSplit] = useState<SplitBillResponse | null>(null);
+  const [shares, setShares] = useState<BillShare[]>([]);
+  const [splitTotal, setSplitTotal] = useState(0);
+  const [checking, setChecking] = useState(true);
+  const [myShare, setMyShare] = useState<SharePixResponse | null>(null);
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -483,11 +499,40 @@ function FecharContaSheet({
   const serviceFee = serviceFeeEnabled && !waive ? round2((subtotal * serviceFeePercent) / 100) : 0;
   const total = subtotal + serviceFee;
 
+  const sessionId = split?.sessionId ?? bill?.sessionId ?? openSessionId;
+  const isPolling = step === 'pix' || step === 'shares' || step === 'sharePix';
+
+  // Se outra pessoa da mesa já dividiu a conta, quem abrir depois cai direto na
+  // lista de partes — senão cada celular tentaria dividir de novo por conta própria.
   useEffect(() => {
-    if (step !== 'pix' || !bill) return;
+    let alive = true;
+    (async () => {
+      if (!openSessionId) { setChecking(false); return; }
+      try {
+        const s = await getContaStatus(openSessionId);
+        if (!alive) return;
+        if (s.totalShares > 0) {
+          setShares(s.shares);
+          setSplitTotal(s.total);
+          setStep(s.paid ? 'paid' : 'shares');
+        }
+      } catch {
+        /* sem divisão prévia: segue no formulário */
+      } finally {
+        if (alive) setChecking(false);
+      }
+    })();
+    return () => { alive = false; };
+  }, [openSessionId]);
+
+  // Um polling só serve os três estados: no split ele também atualiza quem já
+  // pagou, então cada celular na mesa vê as partes dos outros caindo ao vivo.
+  useEffect(() => {
+    if (!isPolling || !sessionId) return;
     const id = setInterval(async () => {
       try {
-        const s = await getContaStatus(bill.sessionId);
+        const s = await getContaStatus(sessionId);
+        if (s.shares.length > 0) setShares(s.shares);
         if (s.paid) {
           clearInterval(id);
           setStep('paid');
@@ -497,7 +542,7 @@ function FecharContaSheet({
       }
     }, 3000);
     return () => clearInterval(id);
-  }, [step, bill]);
+  }, [isPolling, sessionId]);
 
   async function generate() {
     if (!cpf.trim() || !name.trim()) {
@@ -517,12 +562,44 @@ function FecharContaSheet({
     }
   }
 
-  function copyPix() {
-    if (!bill) return;
-    navigator.clipboard.writeText(bill.pix.copyPaste);
+  async function dividir() {
+    setBusy(true);
+    setError(null);
+    try {
+      const r = await dividirConta(token, { people, waiveServiceFee: waive });
+      setSplit(r);
+      setShares(r.shares);
+      setSplitTotal(r.total);
+      setStep('shares');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Erro ao dividir a conta');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function pagarParte(index: number) {
+    setBusy(true);
+    setError(null);
+    try {
+      const r = await gerarPixDaParte(token, index, { cpf: cpf.trim(), name: name.trim() });
+      setMyShare(r);
+      setStep('sharePix');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Erro ao gerar o PIX da sua parte');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function copyText(value: string) {
+    navigator.clipboard.writeText(value);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   }
+
+  const paidCount = shares.filter((s) => s.paid).length;
+  const faltam = shares.filter((s) => !s.paid).reduce((a, s) => a + s.amount, 0);
 
   return (
     <Sheet open onOpenChange={(open) => !open && onClose()}>
@@ -531,7 +608,11 @@ function FecharContaSheet({
           <SheetTitle>{step === 'paid' ? 'Conta paga 🎉' : 'Fechar conta'}</SheetTitle>
         </SheetHeader>
 
-        {step === 'form' && (
+        {checking && step === 'form' && (
+          <p className="py-6 text-center text-sm text-muted-foreground">Carregando…</p>
+        )}
+
+        {!checking && step === 'form' && (
           <>
             <div className="mb-4 rounded-xl bg-gray-50 p-3 text-sm">
               <div className="flex justify-between py-0.5">
@@ -558,19 +639,173 @@ function FecharContaSheet({
               </div>
             </div>
 
-            <div className="mb-2">
-              <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Seu nome" />
-            </div>
-            <div className="mb-3">
-              <Input value={cpf} onChange={(e) => setCpf(e.target.value)} placeholder="CPF (para o PIX)" inputMode="numeric" />
+            <div className="mb-4 grid grid-cols-2 gap-2">
+              <button
+                onClick={() => setMode('full')}
+                className={`rounded-xl border-2 px-3 py-2.5 text-sm font-semibold transition-colors ${
+                  mode === 'full'
+                    ? 'border-orange-500 bg-orange-50 text-orange-700'
+                    : 'border-gray-200 text-gray-500 hover:border-gray-300'
+                }`}
+              >
+                Pagar tudo
+              </button>
+              <button
+                onClick={() => setMode('split')}
+                className={`rounded-xl border-2 px-3 py-2.5 text-sm font-semibold transition-colors ${
+                  mode === 'split'
+                    ? 'border-orange-500 bg-orange-50 text-orange-700'
+                    : 'border-gray-200 text-gray-500 hover:border-gray-300'
+                }`}
+              >
+                Dividir
+              </button>
             </div>
 
-            {error && <p className="mb-2 text-sm text-red-600">{error}</p>}
+            {mode === 'split' ? (
+              <>
+                <div className="mb-4 rounded-xl border border-gray-200 p-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600">Dividir entre</span>
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={() => setPeople((n) => Math.max(2, n - 1))}
+                        disabled={people <= 2}
+                        className="h-8 w-8 rounded-full border border-gray-300 text-lg font-bold text-gray-600 disabled:opacity-30"
+                        aria-label="Menos uma pessoa"
+                      >
+                        −
+                      </button>
+                      <span className="w-10 text-center text-lg font-bold tabular-nums">{people}</span>
+                      <button
+                        onClick={() => setPeople((n) => Math.min(30, n + 1))}
+                        disabled={people >= 30}
+                        className="h-8 w-8 rounded-full border border-gray-300 text-lg font-bold text-gray-600 disabled:opacity-30"
+                        aria-label="Mais uma pessoa"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+                  <Separator className="my-2" />
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Cada pessoa paga</span>
+                    <span className="font-semibold text-orange-600">
+                      ~{brl(round2(total / people))}
+                    </span>
+                  </div>
+                </div>
 
-            <Button onClick={generate} disabled={busy} className="w-full rounded-full bg-orange-500 text-white hover:bg-orange-600">
-              {busy ? 'Gerando PIX…' : `Gerar PIX · ${brl(total)}`}
-            </Button>
+                {error && <p className="mb-2 text-sm text-red-600">{error}</p>}
+
+                <Button onClick={dividir} disabled={busy} className="w-full rounded-full bg-orange-500 text-white hover:bg-orange-600">
+                  {busy ? 'Dividindo…' : `Dividir em ${people} partes`}
+                </Button>
+                <p className="mt-2 text-center text-xs text-muted-foreground">
+                  Cada pessoa paga a sua parte pelo próprio celular
+                </p>
+              </>
+            ) : (
+              <>
+                <div className="mb-2">
+                  <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Seu nome" />
+                </div>
+                <div className="mb-3">
+                  <Input value={cpf} onChange={(e) => setCpf(e.target.value)} placeholder="CPF (para o PIX)" inputMode="numeric" />
+                </div>
+
+                {error && <p className="mb-2 text-sm text-red-600">{error}</p>}
+
+                <Button onClick={generate} disabled={busy} className="w-full rounded-full bg-orange-500 text-white hover:bg-orange-600">
+                  {busy ? 'Gerando PIX…' : `Gerar PIX · ${brl(total)}`}
+                </Button>
+              </>
+            )}
           </>
+        )}
+
+        {step === 'shares' && (
+          <div className="flex flex-col gap-3">
+            <div className="rounded-xl bg-gray-50 p-3 text-center text-sm">
+              <span className="text-gray-600">{brl(splitTotal)} dividido entre </span>
+              <span className="font-semibold">{shares.length} pessoas</span>
+            </div>
+
+            <div className="flex gap-2">
+              <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Seu nome" className="text-sm" />
+              <Input value={cpf} onChange={(e) => setCpf(e.target.value)} placeholder="Seu CPF" inputMode="numeric" className="text-sm" />
+            </div>
+
+            <ul className="flex flex-col gap-2">
+              {shares.map((s) => (
+                <li
+                  key={s.index}
+                  className={`flex items-center justify-between rounded-xl border p-3 ${
+                    s.paid ? 'border-emerald-200 bg-emerald-50' : 'border-gray-200'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <span className={`text-sm font-semibold ${s.paid ? 'text-emerald-700' : 'text-gray-700'}`}>
+                      Parte {s.index}
+                    </span>
+                    <span className="text-sm text-muted-foreground">{brl(s.amount)}</span>
+                  </div>
+                  {s.paid ? (
+                    <span className="text-sm font-semibold text-emerald-600">✅ paga</span>
+                  ) : (
+                    <Button
+                      size="sm"
+                      disabled={busy}
+                      onClick={() => pagarParte(s.index)}
+                      className="rounded-full bg-orange-500 text-white hover:bg-orange-600"
+                    >
+                      Pagar esta
+                    </Button>
+                  )}
+                </li>
+              ))}
+            </ul>
+
+            <p className="text-center text-sm text-muted-foreground">
+              {paidCount} de {shares.length} pagas
+              {faltam > 0 && <> · faltam {brl(faltam)}</>}
+            </p>
+
+            {error && <p className="text-center text-sm text-red-600">{error}</p>}
+          </div>
+        )}
+
+        {step === 'sharePix' && myShare && (
+          <div className="flex flex-col items-center gap-4">
+            <p className="text-sm text-muted-foreground">
+              Parte {myShare.index} · pague {brl(myShare.amount)} com PIX
+            </p>
+            <div className="rounded-2xl border-4 border-orange-100 p-3">
+              <QRCodeSVG value={myShare.pix.copyPaste} size={190} />
+            </div>
+            <div className="flex w-full gap-2">
+              <Input readOnly value={myShare.pix.copyPaste} className="text-xs text-muted-foreground" />
+              <Button onClick={() => copyText(myShare.pix.copyPaste)} className="shrink-0 bg-orange-500 text-white hover:bg-orange-600">
+                {copied ? 'Copiado!' : 'Copiar'}
+              </Button>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              {paidCount} de {shares.length} pagas · aguardando confirmação…
+            </p>
+            {IS_DEV && sessionId && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => simularPagamentoParte(sessionId, myShare.index)}
+                className="w-full border-dashed border-yellow-400 text-yellow-700 hover:bg-yellow-50"
+              >
+                ⚡ Simular pagamento da parte {myShare.index} (dev)
+              </Button>
+            )}
+            <Button variant="ghost" size="sm" onClick={() => setStep('shares')} className="text-muted-foreground">
+              ← Voltar para as partes
+            </Button>
+          </div>
         )}
 
         {step === 'pix' && bill && (
@@ -581,7 +816,7 @@ function FecharContaSheet({
             </div>
             <div className="flex w-full gap-2">
               <Input readOnly value={bill.pix.copyPaste} className="text-xs text-muted-foreground" />
-              <Button onClick={copyPix} className="shrink-0 bg-orange-500 text-white hover:bg-orange-600">
+              <Button onClick={() => copyText(bill.pix.copyPaste)} className="shrink-0 bg-orange-500 text-white hover:bg-orange-600">
                 {copied ? 'Copiado!' : 'Copiar'}
               </Button>
             </div>

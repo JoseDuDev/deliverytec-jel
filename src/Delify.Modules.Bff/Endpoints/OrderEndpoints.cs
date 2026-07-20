@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using Delify.Modules.Bff.Models;
+using Delify.Modules.Catalog.Application;
 using Delify.Modules.Catalog.Infrastructure;
 using Delify.Modules.Orders.Domain;
 using Delify.Modules.Orders.Infrastructure;
@@ -53,6 +54,14 @@ internal static class OrderEndpoints
             var missingProducts = productIds.Except(products.Select(p => p.Id)).ToList();
             if (missingProducts.Count > 0)
                 return Results.BadRequest(new { error = "One or more products not found.", missingIds = missingProducts });
+
+            var unorderable = await MenuAvailability.FindUnorderableAsync(catalogDb, products);
+            if (unorderable.Count > 0)
+                return Results.Conflict(new
+                {
+                    error = $"Indisponível no momento: {string.Join(", ", unorderable)}.",
+                    unavailable = unorderable
+                });
 
             // 3. Criar o Order
             // CustomerNote has internal set — only settable from within the Orders module assembly.

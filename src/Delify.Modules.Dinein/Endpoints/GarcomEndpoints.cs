@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using System.Text.Json;
+using Delify.Modules.Catalog.Application;
 using Delify.Modules.Catalog.Infrastructure;
 using Delify.Modules.Dinein.Application;
 using Delify.Modules.Dinein.Domain;
@@ -149,6 +150,16 @@ internal static class GarcomEndpoints
             var missing = productIds.Except(products.Select(p => p.Id)).ToList();
             if (missing.Count > 0)
                 return Results.BadRequest(new { error = "Um ou mais produtos não foram encontrados.", missingIds = missing });
+
+            // Vale também para o garçom: se acabou na cozinha, não adianta lançar
+            // pelo salão.
+            var unorderable = await MenuAvailability.FindUnorderableAsync(catalogDb, products);
+            if (unorderable.Count > 0)
+                return Results.Conflict(new
+                {
+                    error = $"Indisponível no momento: {string.Join(", ", unorderable)}.",
+                    unavailable = unorderable
+                });
 
             // Abre a comanda se ainda não houver (atribuída a quem lançou).
             var session = await db.Sessions

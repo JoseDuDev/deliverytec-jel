@@ -14,7 +14,10 @@ internal static class MenuEndpoints
         app.MapGet("/bff/menu/{slug}", async (string slug, CatalogDbContext db) =>
         {
             var establishment = await db.Establishments
-                .Include(e => e.Categories.OrderBy(c => c.Order))
+                // Categoria desativada some do cardápio do cliente — é o lojista
+                // dizendo "não venda esta seção". Produto pausado continua vindo,
+                // marcado como indisponível, para o cliente saber que existe.
+                .Include(e => e.Categories.Where(c => c.IsActive).OrderBy(c => c.Order))
                     .ThenInclude(c => c.Products)
                         .ThenInclude(p => p.Complements)
                 .AsNoTracking()

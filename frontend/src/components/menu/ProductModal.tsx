@@ -128,10 +128,14 @@ export default function ProductModal({
           </div>
           <Button
             onClick={handleAdd}
-            disabled={!isOpen}
+            disabled={!isOpen || !product.isAvailable}
             className="rounded-full bg-orange-500 hover:bg-orange-600 text-white px-6 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {isOpen ? `Adicionar · R$ ${unitTotal.toFixed(2).replace('.', ',')}` : 'Estabelecimento fechado'}
+            {!product.isAvailable
+              ? 'Indisponível'
+              : isOpen
+                ? `Adicionar · R$ ${unitTotal.toFixed(2).replace('.', ',')}`
+                : 'Estabelecimento fechado'}
           </Button>
         </div>
       </SheetContent>

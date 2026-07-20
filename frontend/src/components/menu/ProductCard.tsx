@@ -19,15 +19,27 @@ export default function ProductCard({
   isOpen: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  const unavailable = !product.isAvailable;
 
   return (
     <>
+      {/* Indisponível continua clicável (dá pra ver a ficha), mas esmaecido e
+          com o botão de adicionar bloqueado dentro do modal. */}
       <button
         onClick={() => setOpen(true)}
-        className="flex w-full items-start gap-3 rounded-xl border border-gray-100 bg-white p-4 text-left shadow-sm hover:shadow-md transition-shadow"
+        className={`flex w-full items-start gap-3 rounded-xl border border-gray-100 bg-white p-4 text-left shadow-sm transition-shadow hover:shadow-md ${
+          unavailable ? 'opacity-60' : ''
+        }`}
       >
         <div className="flex-1">
-          <p className="font-semibold text-gray-900">{product.name}</p>
+          <div className="flex items-center gap-2">
+            <p className="font-semibold text-gray-900">{product.name}</p>
+            {unavailable && (
+              <span className="shrink-0 rounded-full bg-gray-200 px-2 py-0.5 text-xs font-medium text-gray-600">
+                Indisponível
+              </span>
+            )}
+          </div>
           {product.description && (
             <p className="mt-1 text-sm text-gray-500 line-clamp-2">{product.description}</p>
           )}

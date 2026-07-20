@@ -486,9 +486,10 @@ function ComplementPicker({
           </div>
           <Button
             onClick={() => onAdd(quantity, selected)}
-            className="rounded-full bg-orange-500 px-6 text-white hover:bg-orange-600"
+            disabled={!product.isAvailable}
+            className="rounded-full bg-orange-500 px-6 text-white hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Adicionar · {brl(unitTotal)}
+            {product.isAvailable ? `Adicionar · ${brl(unitTotal)}` : 'Indisponível'}
           </Button>
         </div>
       </SheetContent>
@@ -515,13 +516,17 @@ function ProdutoRow({
   onOpen: () => void;
   onQuickAdd: () => void;
 }) {
+  const unavailable = !product.isAvailable;
+
   return (
     <div
       role="button"
       tabIndex={0}
       onClick={onOpen}
       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(); } }}
-      className="flex cursor-pointer items-center justify-between gap-3 rounded-xl bg-white p-3 text-left shadow-sm transition-shadow hover:shadow-md"
+      className={`flex cursor-pointer items-center justify-between gap-3 rounded-xl bg-white p-3 text-left shadow-sm transition-shadow hover:shadow-md ${
+        unavailable ? 'opacity-60' : ''
+      }`}
     >
       {product.imageUrl && (
         <img
@@ -534,20 +539,29 @@ function ProdutoRow({
         />
       )}
       <div className="min-w-0 flex-1">
-        <p className="font-medium text-gray-800">{product.name}</p>
+        <div className="flex items-center gap-2">
+          <p className="font-medium text-gray-800">{product.name}</p>
+          {unavailable && (
+            <span className="shrink-0 rounded-full bg-gray-200 px-2 py-0.5 text-xs font-medium text-gray-600">
+              Indisponível
+            </span>
+          )}
+        </div>
         {product.description && (
           <p className="line-clamp-2 text-sm text-gray-500">{product.description}</p>
         )}
         <p className="mt-1 text-sm font-semibold text-orange-600">{brl(product.price)}</p>
       </div>
-      <Button
-        size="sm"
-        disabled={!isOpen}
-        onClick={(e) => { e.stopPropagation(); onQuickAdd(); }}
-        className="shrink-0 rounded-full bg-orange-500 px-4 text-white hover:bg-orange-600 disabled:opacity-50"
-      >
-        Adicionar
-      </Button>
+      {!unavailable && (
+        <Button
+          size="sm"
+          disabled={!isOpen}
+          onClick={(e) => { e.stopPropagation(); onQuickAdd(); }}
+          className="shrink-0 rounded-full bg-orange-500 px-4 text-white hover:bg-orange-600 disabled:opacity-50"
+        >
+          Adicionar
+        </Button>
+      )}
     </div>
   );
 }

@@ -1,3 +1,4 @@
+using Delify.Modules.Catalog.Application;
 using Delify.Modules.Catalog.Infrastructure;
 using Delify.Modules.Dinein.Domain;
 using Delify.Modules.Dinein.Infrastructure;
@@ -32,7 +33,9 @@ internal static class DineinMesaEndpoints
                 return Results.NotFound(new { error = "Mesa não encontrada." });
 
             var establishment = await catalogDb.Establishments
-                .Include(e => e.Categories.OrderBy(c => c.Order))
+                // Categoria desativada some do cardápio; produto pausado continua
+                // vindo, marcado como indisponível.
+                .Include(e => e.Categories.Where(c => c.IsActive).OrderBy(c => c.Order))
                     .ThenInclude(c => c.Products)
                         .ThenInclude(p => p.Complements)
                 .AsNoTracking()
@@ -102,6 +105,14 @@ internal static class DineinMesaEndpoints
             var missing = productIds.Except(products.Select(p => p.Id)).ToList();
             if (missing.Count > 0)
                 return Results.BadRequest(new { error = "Um ou mais produtos não foram encontrados.", missingIds = missing });
+
+            var unorderable = await MenuAvailability.FindUnorderableAsync(catalogDb, products);
+            if (unorderable.Count > 0)
+                return Results.Conflict(new
+                {
+                    error = $"Indisponível no momento: {string.Join(", ", unorderable)}.",
+                    unavailable = unorderable
+                });
 
             // Abre a comanda de forma lazy: a mesa só fica ocupada no 1º pedido.
             var session = await db.Sessions

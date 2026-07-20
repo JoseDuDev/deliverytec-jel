@@ -33,6 +33,7 @@ function ProductSheet({ open, onClose, categoryId, editing, onSaved }: ProductSh
   const [description, setDesc]    = useState('');
   const [price, setPrice]         = useState('');
   const [photoUrl, setPhotoUrl]   = useState('');
+  const [imgError, setImgError]   = useState(false);
   const [isAvailable, setAvail]   = useState(true);
   const [saving, setSaving]       = useState(false);
   const [error, setError]         = useState<string | null>(null);
@@ -43,6 +44,7 @@ function ProductSheet({ open, onClose, categoryId, editing, onSaved }: ProductSh
       setDesc(editing?.description ?? '');
       setPrice(editing ? String(editing.price) : '');
       setPhotoUrl(editing?.photoUrl ?? '');
+      setImgError(false);
       setAvail(editing?.isAvailable ?? true);
       setError(null);
     }
@@ -99,10 +101,30 @@ function ProductSheet({ open, onClose, categoryId, editing, onSaved }: ProductSh
           </div>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="p-photo">URL da foto</Label>
-            <Input id="p-photo" type="url" value={photoUrl} onChange={(e) => setPhotoUrl(e.target.value)} placeholder="https://..." />
-            {photoUrl && (
-              <img src={photoUrl} alt="preview" className="h-24 w-24 rounded object-cover border mt-1"
-                onError={(e) => (e.currentTarget.style.display = 'none')} />
+            <Input
+              id="p-photo"
+              type="url"
+              value={photoUrl}
+              onChange={(e) => { setPhotoUrl(e.target.value); setImgError(false); }}
+              placeholder="https://exemplo.com/foto.jpg"
+            />
+            {photoUrl && !imgError && (
+              // key força um <img> novo a cada URL: sem isso o React reaproveita o
+              // elemento e uma imagem que falhou antes não volta a ser tentada.
+              <img
+                key={photoUrl}
+                src={photoUrl}
+                alt="preview"
+                className="h-24 w-24 rounded object-cover border mt-1"
+                onError={() => setImgError(true)}
+              />
+            )}
+            {photoUrl && imgError && (
+              <p className="mt-1 text-xs text-amber-700">
+                Não consegui carregar essa imagem. O link precisa apontar direto para o
+                arquivo (terminando em .jpg, .png, .webp…), não para a página onde ela
+                aparece. Na imagem, use “Copiar endereço da imagem”.
+              </p>
             )}
           </div>
           <div className="flex items-center gap-2">

@@ -15,6 +15,9 @@ public sealed class Payment : Entity
     public string? PixQrCode { get; private set; }
     public string? PixCopyPaste { get; private set; }
 
+    /// <summary>Página hospedada do gateway (PIX + cartão). Preenchida no fluxo de checkout.</summary>
+    public string? CheckoutUrl { get; private set; }
+
     // Conta dividida: cada parte é um Payment próprio (1..ShareCount).
     // Nulos = cobrança única da comanda inteira (ou pagamento de delivery).
     public int? ShareIndex { get; private set; }
@@ -91,6 +94,35 @@ public sealed class Payment : Entity
         GatewayPaymentId = gatewayId;
         PixQrCode = qrCode;
         PixCopyPaste = copyPaste;
+        Method = "PIX";
+        UpdatedAt = DateTimeOffset.UtcNow;
+    }
+
+    public void SetCheckoutData(string gatewayId, string url)
+    {
+        GatewayPaymentId = gatewayId;
+        CheckoutUrl = url;
+        Method = "CHECKOUT";
+        UpdatedAt = DateTimeOffset.UtcNow;
+    }
+
+    /// <summary>
+    /// Cartão recusado / estornado: a cobrança volta a ser devida.
+    ///
+    /// Continua <c>Pending</c> de propósito. Marcá-la como <c>Failed</c> a tiraria da
+    /// contagem de pendências e a comanda seria dada como quitada com essa parte sem
+    /// pagar. Os dados da tentativa são limpos para que uma nova possa ser gerada —
+    /// o rastro fica com o gateway, não aqui.
+    /// </summary>
+    public void MarkRetryable()
+    {
+        if (Status == PaymentStatus.Confirmed)
+            throw new InvalidOperationException("Pagamento confirmado não volta a ser devido.");
+        Status = PaymentStatus.Pending;
+        GatewayPaymentId = null;
+        CheckoutUrl = null;
+        PixQrCode = null;
+        PixCopyPaste = null;
         UpdatedAt = DateTimeOffset.UtcNow;
     }
 }

@@ -355,6 +355,95 @@ internal static class DineinMesaEndpoints
         .WithTags("Mesa")
         .AllowAnonymous();
 
+        // ── Checkout hospedado (PIX + cartão) de uma parte ──────────────────
+        app.MapPost("/bff/mesa/{token}/conta/parte/{index:int}/checkout", async (
+            string token,
+            int index,
+            SharePixReq req,
+            DineinDbContext db,
+            PaymentsDbContext paymentsDb,
+            IPaymentGateway gateway) =>
+        {
+            var table = await db.Tables.AsNoTracking().FirstOrDefaultAsync(t => t.QrToken == token);
+            if (table is null) return Results.NotFound(new { error = "Mesa não encontrada." });
+
+            var session = await db.Sessions.AsNoTracking()
+                .FirstOrDefaultAsync(s => s.TableId == table.Id && s.Status == SessionStatus.Open);
+            if (session is null) return Results.Conflict(new { error = "Não há comanda aberta nesta mesa." });
+
+            var share = await paymentsDb.Payments.FirstOrDefaultAsync(p =>
+                p.TableSessionId == session.Id && p.ShareIndex == index && p.Status != PaymentStatus.Failed);
+
+            if (share is null) return Results.NotFound(new { error = "Parte não encontrada. A conta foi dividida?" });
+            if (share.Status == PaymentStatus.Confirmed)
+                return Results.Conflict(new { error = "Esta parte já foi paga." });
+
+            if (share.CheckoutUrl is not null)
+                return Results.Ok(new CheckoutDto(index, share.Amount, share.CheckoutUrl));
+
+            var checkout = await gateway.CreateCheckoutAsync(new CheckoutRequest(
+                share.Id, share.Amount,
+                $"Mesa {table.Number} — parte {index} de {share.ShareCount}",
+                req.Cpf ?? "", req.Name ?? ""));
+
+            share.SetCheckoutData(checkout.GatewayId, checkout.Url);
+            await paymentsDb.SaveChangesAsync();
+
+            return Results.Ok(new CheckoutDto(index, share.Amount, checkout.Url));
+        })
+        .WithName("MesaShareCheckout")
+        .WithTags("Mesa")
+        .AllowAnonymous();
+
+        // ── Checkout hospedado da conta inteira ─────────────────────────────
+        app.MapPost("/bff/mesa/{token}/conta/checkout", async (
+            string token,
+            CloseBillReq req,
+            DineinDbContext db,
+            CatalogDbContext catalogDb,
+            OrdersDbContext ordersDb,
+            PaymentsDbContext paymentsDb,
+            IPaymentGateway gateway) =>
+        {
+            var ctx = await LoadBillContextAsync(token, req.WaiveServiceFee, db, catalogDb, ordersDb);
+            if (ctx.Error is not null) return ctx.Error;
+            var (session, _, _, total, _) = ctx;
+
+            if (await paymentsDb.Payments.AnyAsync(p =>
+                    p.TableSessionId == session!.Id && p.ShareIndex != null && p.Status != PaymentStatus.Failed))
+                return Results.Conflict(new { error = "Esta comanda foi dividida. Pague pelas partes." });
+
+            var table = await db.Tables.AsNoTracking().FirstAsync(t => t.QrToken == token);
+
+            var pending = await paymentsDb.Payments
+                .Where(p => p.TableSessionId == session!.Id
+                         && p.ShareIndex == null
+                         && p.Status == PaymentStatus.Pending)
+                .OrderByDescending(p => p.CreatedAt)
+                .FirstOrDefaultAsync();
+
+            if (pending is not null)
+            {
+                if (pending.Amount == total && pending.CheckoutUrl is not null)
+                    return Results.Ok(new CheckoutDto(0, total, pending.CheckoutUrl));
+
+                pending.Void();
+            }
+
+            var payment = Payment.CreateForSession(session!.TenantId, session.Id, total);
+            var checkout = await gateway.CreateCheckoutAsync(new CheckoutRequest(
+                payment.Id, total, $"Mesa {table.Number} — conta", req.Cpf ?? "", req.Name ?? ""));
+
+            payment.SetCheckoutData(checkout.GatewayId, checkout.Url);
+            paymentsDb.Payments.Add(payment);
+            await paymentsDb.SaveChangesAsync();
+
+            return Results.Ok(new CheckoutDto(0, total, checkout.Url));
+        })
+        .WithName("MesaBillCheckout")
+        .WithTags("Mesa")
+        .AllowAnonymous();
+
         // ── Status do pagamento da comanda (polling) ────────────────────────
         app.MapGet("/bff/conta/{sessionId:guid}/status", async (
             Guid sessionId, DineinDbContext db, PaymentsDbContext paymentsDb) =>
@@ -496,6 +585,8 @@ internal record SplitBillResponse(
     int People, IReadOnlyList<BillShareDto> Shares);
 internal record SharePixReq(string? Cpf, string? Name);
 internal record SharePixResponse(int Index, decimal Amount, PixDto Pix);
+/// <summary>Index 0 = conta inteira; &gt;0 = parte da conta dividida.</summary>
+internal record CheckoutDto(int Index, decimal Amount, string CheckoutUrl);
 
 internal record ContaStatusResponse(
     bool Paid, string SessionStatus, decimal Total,

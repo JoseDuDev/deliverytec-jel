@@ -74,6 +74,9 @@ export type SplitBillResponse = {
 
 export type SharePixResponse = { index: number; amount: number; pix: Pix };
 
+/** index 0 = conta inteira; >0 = parte da conta dividida. */
+export type CheckoutResponse = { index: number; amount: number; checkoutUrl: string };
+
 export type ContaStatus = {
   paid: boolean;
   sessionStatus: string;
@@ -186,6 +189,45 @@ export async function gerarPixDaParte(
   if (!res.ok) {
     const err = await res.json().catch(() => null);
     throw new Error(err?.error || 'Erro ao gerar o PIX da sua parte');
+  }
+  return res.json();
+}
+
+/** Checkout hospedado (PIX + cartão) de uma parte da conta dividida. */
+export async function checkoutDaParte(
+  token: string,
+  index: number,
+  data: { cpf?: string; name?: string } = {},
+): Promise<CheckoutResponse> {
+  const res = await fetch(`/bff/mesa/${token}/conta/parte/${index}/checkout`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ cpf: data.cpf ?? null, name: data.name ?? null }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => null);
+    throw new Error(err?.error || 'Erro ao abrir o pagamento com cartão');
+  }
+  return res.json();
+}
+
+/** Checkout hospedado (PIX + cartão) da conta inteira. */
+export async function checkoutDaConta(
+  token: string,
+  data: { cpf?: string; name?: string; waiveServiceFee: boolean },
+): Promise<CheckoutResponse> {
+  const res = await fetch(`/bff/mesa/${token}/conta/checkout`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      cpf: data.cpf ?? null,
+      name: data.name ?? null,
+      waiveServiceFee: data.waiveServiceFee,
+    }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => null);
+    throw new Error(err?.error || 'Erro ao abrir o pagamento com cartão');
   }
   return res.json();
 }

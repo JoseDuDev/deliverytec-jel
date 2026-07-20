@@ -11,6 +11,8 @@ import {
   dividirConta,
   gerarPixDaParte,
   simularPagamentoParte,
+  checkoutDaParte,
+  checkoutDaConta,
   type MesaResponse,
   type MesaProduct,
   type CloseBillResponse,
@@ -462,6 +464,40 @@ function ComplementPicker({
   );
 }
 
+function MetodoPagamento({
+  value,
+  onChange,
+}: {
+  value: 'pix' | 'card';
+  onChange: (v: 'pix' | 'card') => void;
+}) {
+  const opcoes = [
+    { key: 'pix' as const, label: 'PIX', hint: 'na hora' },
+    { key: 'card' as const, label: 'Cartão', hint: 'crédito' },
+  ];
+
+  return (
+    <div className="mb-3 grid grid-cols-2 gap-2">
+      {opcoes.map((o) => (
+        <button
+          key={o.key}
+          onClick={() => onChange(o.key)}
+          className={`rounded-xl border px-3 py-2 text-left transition-colors ${
+            value === o.key
+              ? 'border-orange-500 bg-orange-50'
+              : 'border-gray-200 hover:border-gray-300'
+          }`}
+        >
+          <span className={`block text-sm font-semibold ${value === o.key ? 'text-orange-700' : 'text-gray-700'}`}>
+            {o.label}
+          </span>
+          <span className="block text-xs text-muted-foreground">{o.hint}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function FecharContaSheet({
   token,
   sessionId: openSessionId,
@@ -481,6 +517,7 @@ function FecharContaSheet({
 }) {
   const [step, setStep] = useState<'form' | 'pix' | 'shares' | 'sharePix' | 'paid'>('form');
   const [mode, setMode] = useState<'full' | 'split'>('full');
+  const [payWith, setPayWith] = useState<'pix' | 'card'>('pix');
   const [people, setPeople] = useState(2);
   const [cpf, setCpf] = useState('');
   const [name, setName] = useState('');
@@ -582,12 +619,34 @@ function FecharContaSheet({
     setBusy(true);
     setError(null);
     try {
+      if (payWith === 'card') {
+        // Mesmo caminho de produção: o pagador sai do app para a página hospedada
+        // e digita o cartão lá. Em dev o stub aponta para um checkout simulado.
+        const r = await checkoutDaParte(token, index, { cpf: cpf.trim(), name: name.trim() });
+        window.location.href = r.checkoutUrl;
+        return;
+      }
       const r = await gerarPixDaParte(token, index, { cpf: cpf.trim(), name: name.trim() });
       setMyShare(r);
       setStep('sharePix');
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Erro ao gerar o PIX da sua parte');
-    } finally {
+      setError(e instanceof Error ? e.message : 'Erro ao abrir o pagamento da sua parte');
+      setBusy(false);
+    }
+  }
+
+  async function pagarTudoNoCartao() {
+    setBusy(true);
+    setError(null);
+    try {
+      const r = await checkoutDaConta(token, {
+        cpf: cpf.trim(),
+        name: name.trim(),
+        waiveServiceFee: waive,
+      });
+      window.location.href = r.checkoutUrl;
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Erro ao abrir o pagamento com cartão');
       setBusy(false);
     }
   }
@@ -711,14 +770,29 @@ function FecharContaSheet({
                   <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Seu nome" />
                 </div>
                 <div className="mb-3">
-                  <Input value={cpf} onChange={(e) => setCpf(e.target.value)} placeholder="CPF (para o PIX)" inputMode="numeric" />
+                  <Input value={cpf} onChange={(e) => setCpf(e.target.value)} placeholder="CPF" inputMode="numeric" />
                 </div>
+
+                <MetodoPagamento value={payWith} onChange={setPayWith} />
 
                 {error && <p className="mb-2 text-sm text-red-600">{error}</p>}
 
-                <Button onClick={generate} disabled={busy} className="w-full rounded-full bg-orange-500 text-white hover:bg-orange-600">
-                  {busy ? 'Gerando PIX…' : `Gerar PIX · ${brl(total)}`}
+                <Button
+                  onClick={payWith === 'card' ? pagarTudoNoCartao : generate}
+                  disabled={busy}
+                  className="w-full rounded-full bg-orange-500 text-white hover:bg-orange-600"
+                >
+                  {busy
+                    ? 'Abrindo pagamento…'
+                    : payWith === 'card'
+                      ? `Pagar com cartão · ${brl(total)}`
+                      : `Gerar PIX · ${brl(total)}`}
                 </Button>
+                {payWith === 'card' && (
+                  <p className="mt-2 text-center text-xs text-muted-foreground">
+                    Você será levado à página segura do provedor de pagamento
+                  </p>
+                )}
               </>
             )}
           </>
@@ -735,6 +809,8 @@ function FecharContaSheet({
               <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Seu nome" className="text-sm" />
               <Input value={cpf} onChange={(e) => setCpf(e.target.value)} placeholder="Seu CPF" inputMode="numeric" className="text-sm" />
             </div>
+
+            <MetodoPagamento value={payWith} onChange={setPayWith} />
 
             <ul className="flex flex-col gap-2">
               {shares.map((s) => (
@@ -759,7 +835,7 @@ function FecharContaSheet({
                       onClick={() => pagarParte(s.index)}
                       className="rounded-full bg-orange-500 text-white hover:bg-orange-600"
                     >
-                      Pagar esta
+                      {payWith === 'card' ? 'Pagar no cartão' : 'Pagar esta'}
                     </Button>
                   )}
                 </li>

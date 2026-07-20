@@ -26,18 +26,41 @@ internal static class WebhookEndpoint
 
             var result = await gateway.ProcessWebhookAsync(body, signature);
 
-            if (!result.IsConfirmed) return Results.Ok();
+            if (result.Outcome == WebhookOutcome.Ignored) return Results.Ok();
 
-            var payment = await db.Payments
-                .FirstOrDefaultAsync(p => p.GatewayPaymentId == result.GatewayPaymentId);
+            // No checkout hospedado a cobrança é criada só quando o pagador conclui,
+            // então o payment.id do callback é desconhecido até aqui — quem resolve
+            // a correlação é o externalReference, que carrega o nosso Payment.Id.
+            Payment? payment = null;
+
+            if (!string.IsNullOrEmpty(result.GatewayPaymentId))
+                payment = await db.Payments
+                    .FirstOrDefaultAsync(p => p.GatewayPaymentId == result.GatewayPaymentId);
+
+            if (payment is null && Guid.TryParse(result.ExternalReference, out var ourId))
+                payment = await db.Payments.FirstOrDefaultAsync(p => p.Id == ourId);
 
             if (payment is null) return Results.Ok();
+
+            if (result.Outcome == WebhookOutcome.Refused)
+            {
+                // Cartão recusado/estornado: a parte volta a ser devida para nova tentativa.
+                if (payment.Status != PaymentStatus.Confirmed)
+                {
+                    payment.MarkRetryable();
+                    await db.SaveChangesAsync();
+                }
+                return Results.Ok();
+            }
 
             // O gateway reenvia callbacks. Confirmar de novo republicaria o evento
             // e fecharia uma comanda que talvez já tenha sido reaberta.
             if (payment.Status == PaymentStatus.Confirmed) return Results.Ok();
 
-            payment.ConfirmPayment(result.GatewayPaymentId);
+            payment.ConfirmPayment(
+                string.IsNullOrEmpty(result.GatewayPaymentId)
+                    ? payment.GatewayPaymentId ?? payment.Id.ToString()
+                    : result.GatewayPaymentId);
             await db.SaveChangesAsync();
 
             if (payment.TableSessionId is Guid sessionId)

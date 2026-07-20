@@ -39,18 +39,89 @@ internal sealed class AsaasPaymentGateway(HttpClient httpClient, IConfiguration 
             ExpiresAt: DateTimeOffset.UtcNow.AddHours(24));
     }
 
+    /// <summary>
+    /// Checkout hospedado: uma página do Asaas com PIX e cartão. O cartão é digitado
+    /// lá, então nenhum dado sensível passa por aqui.
+    /// </summary>
+    public async Task<CheckoutResult> CreateCheckoutAsync(CheckoutRequest request, CancellationToken ct = default)
+    {
+        var callbackBase = config["Asaas:CheckoutCallbackBaseUrl"]?.TrimEnd('/') ?? "";
+
+        var body = new
+        {
+            billingTypes = new[] { "PIX", "CREDIT_CARD" },
+            chargeTypes = new[] { "DETACHED" },
+            minutesToExpire = request.MinutesToExpire,
+            // É por aqui que o webhook volta a encontrar este Payment: a resposta do
+            // checkout traz o id da sessão, não o da cobrança que será criada depois.
+            externalReference = request.PaymentId.ToString(),
+            callback = new
+            {
+                successUrl = $"{callbackBase}/pagamento/sucesso",
+                cancelUrl = $"{callbackBase}/pagamento/cancelado",
+                expiredUrl = $"{callbackBase}/pagamento/expirado"
+            },
+            items = new[]
+            {
+                new { name = request.Description, description = request.Description, quantity = 1, value = request.Amount }
+            },
+            customerData = new
+            {
+                name = request.CustomerName,
+                cpfCnpj = request.CustomerCpf
+            }
+        };
+
+        var response = await httpClient.PostAsJsonAsync("/api/v3/checkouts", body, ct);
+        response.EnsureSuccessStatusCode();
+
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: ct);
+
+        return new CheckoutResult(
+            GatewayId: json.GetProperty("id").GetString()!,
+            Url: json.GetProperty("link").GetString()!,
+            ExpiresAt: DateTimeOffset.UtcNow.AddMinutes(request.MinutesToExpire));
+    }
+
     public Task<WebhookResult> ProcessWebhookAsync(string payload, string signature, CancellationToken ct = default)
     {
         var webhookToken = config["Asaas:WebhookToken"];
-        if (signature != webhookToken)
-            return Task.FromResult(new WebhookResult(string.Empty, false));
+
+        // Token em branco aceitaria qualquer requisição sem header — o callback é
+        // anônimo e público, então sem token configurado nada é processado.
+        if (string.IsNullOrWhiteSpace(webhookToken) || signature != webhookToken)
+            return Task.FromResult(Ignored);
 
         var json = JsonDocument.Parse(payload);
-        var eventType = json.RootElement.GetProperty("event").GetString();
-        var paymentId = json.RootElement.GetProperty("payment").GetProperty("id").GetString()!;
+        if (!json.RootElement.TryGetProperty("event", out var evt)) return Task.FromResult(Ignored);
+        if (!json.RootElement.TryGetProperty("payment", out var pay)) return Task.FromResult(Ignored);
 
-        return Task.FromResult(new WebhookResult(paymentId, eventType == "PAYMENT_CONFIRMED"));
+        var paymentId = pay.TryGetProperty("id", out var pid) ? pid.GetString() ?? "" : "";
+        var externalRef = pay.TryGetProperty("externalReference", out var xr) ? xr.GetString() : null;
+
+        var outcome = evt.GetString() switch
+        {
+            // Cartão confirma primeiro e só libera fundos até 32 dias depois
+            // (PAYMENT_RECEIVED). Esperar o repasse deixaria a mesa ocupada — então
+            // o que libera a comanda é a confirmação.
+            "PAYMENT_CONFIRMED" => WebhookOutcome.Confirmed,
+            "PAYMENT_RECEIVED" => WebhookOutcome.Confirmed,
+
+            // Recusado ou desfeito: a parte volta a ser devida.
+            "PAYMENT_CREDIT_CARD_CAPTURE_REFUSED" => WebhookOutcome.Refused,
+            "PAYMENT_REPROVED_BY_RISK_ANALYSIS" => WebhookOutcome.Refused,
+            "PAYMENT_REFUNDED" => WebhookOutcome.Refused,
+            "PAYMENT_CHARGEBACK_REQUESTED" => WebhookOutcome.Refused,
+
+            // PAYMENT_CREATED, _UPDATED, _OVERDUE, _AUTHORIZED (só autorizado, ainda
+            // não capturado), _AWAITING_RISK_ANALYSIS e os demais não mudam nada aqui.
+            _ => WebhookOutcome.Ignored
+        };
+
+        return Task.FromResult(new WebhookResult(paymentId, externalRef, outcome));
     }
+
+    private static readonly WebhookResult Ignored = new(string.Empty, null, WebhookOutcome.Ignored);
 
     private async Task<string> GetOrCreateCustomerAsync(string cpf, string name, CancellationToken ct)
     {

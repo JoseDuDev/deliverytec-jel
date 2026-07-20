@@ -20,6 +20,10 @@ const nextConfig: NextConfig = {
         source: '/painel-api/:path*',
         destination: 'http://localhost:7000/painel/:path*',
       },
+      {
+        source: '/garcom-api/:path*',
+        destination: 'http://localhost:7000/garcom/:path*',
+      },
     ];
   },
 };

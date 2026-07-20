@@ -8,4 +8,5 @@ public sealed class AppUser : IdentityUser<Guid>
     public string FullName { get; set; } = string.Empty;
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
     public bool IsSuperAdmin { get; set; } = false;
+    public UserRole Role { get; set; } = UserRole.Owner;
 }

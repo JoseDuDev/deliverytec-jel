@@ -3,6 +3,7 @@ using System;
 using Delify.Modules.Dinein.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Delify.Modules.Dinein.Infrastructure.Migrations
 {
     [DbContext(typeof(DineinDbContext))]
-    partial class DineinDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260720042820_AddSessionOpenedBy")]
+    partial class AddSessionOpenedBy
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

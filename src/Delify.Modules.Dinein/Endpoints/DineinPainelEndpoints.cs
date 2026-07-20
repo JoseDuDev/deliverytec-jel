@@ -1,6 +1,4 @@
-using System.IdentityModel.Tokens.Jwt;
 using System.Security.Cryptography;
-using System.Text;
 using System.Text.Json;
 using Delify.Modules.Catalog.Infrastructure;
 using Delify.Modules.Dinein.Domain;
@@ -14,7 +12,6 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
-using Microsoft.IdentityModel.Tokens;
 
 namespace Delify.Modules.Dinein.Endpoints;
 
@@ -221,7 +218,7 @@ internal static class DineinPainelEndpoints
             HttpContext http,
             CancellationToken ct) =>
         {
-            var tenantId = ValidateToken(token, config);
+            var tenantId = DineinAuth.ValidateTenant(token, config);
             if (tenantId is null) return Results.Unauthorized();
 
             http.Response.ContentType = "text/event-stream";
@@ -268,31 +265,6 @@ internal static class DineinPainelEndpoints
 
     private static string GenerateToken() =>
         Convert.ToHexString(RandomNumberGenerator.GetBytes(8)).ToLowerInvariant();
-
-    private static Guid? ValidateToken(string? token, IConfiguration config)
-    {
-        if (string.IsNullOrWhiteSpace(token)) return null;
-
-        var jwtKey = config["Jwt:Key"];
-        if (jwtKey is null) return null;
-
-        var handler = new JwtSecurityTokenHandler();
-        try
-        {
-            var principal = handler.ValidateToken(token, new TokenValidationParameters
-            {
-                ValidateIssuerSigningKey = true,
-                IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),
-                ValidateIssuer = false,
-                ValidateAudience = false,
-                ClockSkew = TimeSpan.Zero
-            }, out _);
-
-            var tenantIdClaim = principal.FindFirst("tenant_id")?.Value;
-            return Guid.TryParse(tenantIdClaim, out var id) ? id : null;
-        }
-        catch { return null; }
-    }
 
     private record CreateTableReq(string Number);
     private record RenameTableReq(string Number);

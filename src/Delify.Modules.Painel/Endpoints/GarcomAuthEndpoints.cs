@@ -11,14 +11,14 @@ using Microsoft.IdentityModel.Tokens;
 
 namespace Delify.Modules.Painel.Endpoints;
 
-internal static class PainelAuthEndpoints
+internal static class GarcomAuthEndpoints
 {
     internal record LoginRequest(string Email, string Password);
-    internal record LoginResponse(string Token, DateTimeOffset ExpiresAt);
+    internal record LoginResponse(string Token, DateTimeOffset ExpiresAt, string Name, string Role);
 
     internal static IEndpointRouteBuilder Map(IEndpointRouteBuilder app)
     {
-        app.MapPost("/painel/auth/login", async (
+        app.MapPost("/garcom/auth/login", async (
             LoginRequest req,
             UserManager<AppUser> userManager,
             IConfiguration config) =>
@@ -27,14 +27,14 @@ internal static class PainelAuthEndpoints
             if (user is null || !await userManager.CheckPasswordAsync(user, req.Password))
                 return Results.Unauthorized();
 
-            // Painel é só do dono; garçons usam o app do garçom (/garcom).
-            if (user.IsSuperAdmin || user.TenantId == Guid.Empty || user.Role != UserRole.Owner)
+            // App do garçom: garçom ou dono (que também pode atender no salão).
+            if (user.IsSuperAdmin || user.TenantId == Guid.Empty)
                 return Results.Forbid();
 
             var jwtKey = config["Jwt:Key"] ?? throw new InvalidOperationException("Jwt:Key not configured.");
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey));
             var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-            var expires = DateTimeOffset.UtcNow.AddHours(8);
+            var expires = DateTimeOffset.UtcNow.AddHours(12);
 
             var claims = new[]
             {
@@ -52,9 +52,10 @@ internal static class PainelAuthEndpoints
                 expires: expires.UtcDateTime,
                 signingCredentials: creds);
 
-            return Results.Ok(new LoginResponse(new JwtSecurityTokenHandler().WriteToken(token), expires));
+            return Results.Ok(new LoginResponse(
+                new JwtSecurityTokenHandler().WriteToken(token), expires, user.FullName, user.Role.ToString()));
         })
-        .WithTags("Painel")
+        .WithTags("Garcom")
         .AllowAnonymous();
 
         return app;

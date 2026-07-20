@@ -15,6 +15,12 @@ public sealed class IdentityDbContext(DbContextOptions<IdentityDbContext> option
         base.OnModelCreating(builder);
         builder.HasDefaultSchema("identity");
 
+        builder.Entity<AppUser>()
+            .Property(u => u.Role)
+            .HasConversion<string>()
+            .HasMaxLength(20)
+            .HasDefaultValue(UserRole.Owner);
+
         builder.Entity<Tenant>(e =>
         {
             e.HasKey(t => t.Id);

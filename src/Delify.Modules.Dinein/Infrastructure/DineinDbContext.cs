@@ -27,6 +27,7 @@ public sealed class DineinDbContext(DbContextOptions<DineinDbContext> options) :
         {
             e.HasKey(s => s.Id);
             e.Property(s => s.Status).HasConversion<string>().HasMaxLength(20);
+            e.Property(s => s.OpenedByName).HasMaxLength(120);
             e.HasIndex(s => new { s.TableId, s.Status });
         });
 

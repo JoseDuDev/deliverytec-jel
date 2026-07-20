@@ -285,6 +285,44 @@ export async function deleteMesa(id: string): Promise<void> {
   }
 }
 
+// ── Garçons ────────────────────────────────────────────────────────────────────
+
+export type GarcomData = { id: string; name: string; email: string; createdAt: string };
+
+export async function getGarcons(): Promise<GarcomData[]> {
+  const res = await fetch('/painel-api/garcons/', { headers: painelHeaders() });
+  return handleResponse(res);
+}
+
+export async function createGarcom(name: string, email: string, password: string): Promise<GarcomData> {
+  const res = await fetch('/painel-api/garcons/', {
+    method: 'POST',
+    headers: painelHeaders(),
+    body: JSON.stringify({ name, email, password }),
+  });
+  return handleResponse(res);
+}
+
+export async function updateGarcom(
+  id: string,
+  data: { name?: string; password?: string },
+): Promise<GarcomData> {
+  const res = await fetch(`/painel-api/garcons/${id}`, {
+    method: 'PATCH',
+    headers: painelHeaders(),
+    body: JSON.stringify(data),
+  });
+  return handleResponse(res);
+}
+
+export async function deleteGarcom(id: string): Promise<void> {
+  const res = await fetch(`/painel-api/garcons/${id}`, { method: 'DELETE', headers: painelHeaders() });
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(text || `HTTP ${res.status}`);
+  }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 
 export async function updateEstabelecimento(data: {

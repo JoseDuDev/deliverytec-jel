@@ -27,9 +27,11 @@ public sealed class PainelModule : IModule
     public IEndpointRouteBuilder MapEndpoints(IEndpointRouteBuilder endpoints)
     {
         PainelAuthEndpoints.Map(endpoints);
+        GarcomAuthEndpoints.Map(endpoints);
         PainelDashboardEndpoints.Map(endpoints);
         PainelCardapioEndpoints.Map(endpoints);
         PainelOrdersEndpoints.Map(endpoints);
+        PainelGarcomEndpoints.Map(endpoints);
         return endpoints;
     }
 }

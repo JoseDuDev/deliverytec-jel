@@ -28,6 +28,7 @@ public sealed class DineinModule : IModule
     {
         DineinPainelEndpoints.Map(endpoints);
         DineinMesaEndpoints.Map(endpoints);
+        GarcomEndpoints.Map(endpoints);
         return endpoints;
     }
 }

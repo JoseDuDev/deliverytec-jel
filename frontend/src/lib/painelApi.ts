@@ -205,7 +205,32 @@ export type MesaData = {
   openedAt: string | null;
   orderCount: number;
   sessionTotal: number;
+  hasPendingCall: boolean;
 };
+
+export type ChamadaData = {
+  id: string;
+  tableId: string;
+  tableNumber: string;
+  reason: string | null;
+  createdAt: string;
+};
+
+export async function getChamadas(): Promise<ChamadaData[]> {
+  const res = await fetch('/painel-api/mesas/chamadas', { headers: painelHeaders() });
+  return handleResponse(res);
+}
+
+export async function atenderChamada(id: string): Promise<void> {
+  const res = await fetch(`/painel-api/mesas/chamadas/${id}/atender`, {
+    method: 'POST',
+    headers: painelHeaders(),
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(text || `HTTP ${res.status}`);
+  }
+}
 
 export async function getMesas(): Promise<MesaData[]> {
   const res = await fetch('/painel-api/mesas/', { headers: painelHeaders() });

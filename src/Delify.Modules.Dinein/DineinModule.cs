@@ -1,5 +1,6 @@
 using Delify.Modules.Dinein.Endpoints;
 using Delify.Modules.Dinein.Infrastructure;
+using Delify.Modules.Dinein.Services;
 using Delify.Shared.Abstractions;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
@@ -17,6 +18,8 @@ public sealed class DineinModule : IModule
         services.AddDbContext<DineinDbContext>(opts =>
             opts.UseNpgsql(configuration.GetConnectionString("Delify"),
                 b => b.MigrationsHistoryTable("__EFMigrationsHistory", "dinein")));
+
+        services.AddSingleton<MesaNotifier>();
 
         return services;
     }

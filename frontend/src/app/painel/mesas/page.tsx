@@ -1,16 +1,20 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { QRCodeCanvas } from 'qrcode.react';
 import {
   getMesas,
   getDashboard,
+  getChamadas,
+  atenderChamada,
+  getPainelToken,
   createMesa,
   renameMesa,
   regenerateMesaQr,
   liberarMesa,
   deleteMesa,
   type MesaData,
+  type ChamadaData,
 } from '@/lib/painelApi';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -22,12 +26,39 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
-import { Plus, QrCode, RefreshCw, Trash2, DoorOpen, Copy, Check } from 'lucide-react';
+import { Plus, QrCode, RefreshCw, Trash2, DoorOpen, Copy, Check, BellRing } from 'lucide-react';
 
 const brl = (n: number) => `R$ ${n.toFixed(2).replace('.', ',')}`;
 
+function elapsed(iso: string) {
+  const mins = Math.floor((Date.now() - new Date(iso).getTime()) / 60_000);
+  if (mins < 1) return 'agora';
+  if (mins < 60) return `${mins} min`;
+  return `${Math.floor(mins / 60)}h${mins % 60}`;
+}
+
+function playBeep() {
+  try {
+    const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+    const ctx = new Ctx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.frequency.value = 880;
+    gain.gain.setValueAtTime(0.15, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.4);
+    osc.onended = () => ctx.close();
+  } catch {
+    /* áudio indisponível — ignora */
+  }
+}
+
 export default function MesasPage() {
   const [mesas, setMesas] = useState<MesaData[]>([]);
+  const [chamadas, setChamadas] = useState<ChamadaData[]>([]);
   const [slug, setSlug] = useState('');
   const [origin, setOrigin] = useState('');
   const [loading, setLoading] = useState(true);
@@ -36,12 +67,14 @@ export default function MesasPage() {
   const [newNumber, setNewNumber] = useState('');
   const [creating, setCreating] = useState(false);
   const [qrMesa, setQrMesa] = useState<MesaData | null>(null);
+  const esRef = useRef<EventSource | null>(null);
 
   const load = useCallback(async () => {
     try {
-      const [list, dash] = await Promise.all([getMesas(), getDashboard()]);
+      const [list, dash, calls] = await Promise.all([getMesas(), getDashboard(), getChamadas()]);
       setMesas(list);
       setSlug(dash.slug);
+      setChamadas(calls);
       setError(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erro ao carregar as mesas');
@@ -54,6 +87,36 @@ export default function MesasPage() {
     setOrigin(window.location.origin);
     load();
   }, [load]);
+
+  // SSE — chamadas de garçom e atualizações de comanda em tempo real.
+  useEffect(() => {
+    const token = getPainelToken();
+    if (!token) return;
+    const es = new EventSource(`/painel-api/mesas/stream?token=${encodeURIComponent(token)}`);
+    esRef.current = es;
+    es.addEventListener('mesa-update', (e) => {
+      try {
+        const data = JSON.parse((e as MessageEvent).data);
+        if (data?.type === 'waiter-call') playBeep();
+      } catch {
+        /* ignora */
+      }
+      load();
+    });
+    return () => {
+      es.close();
+      esRef.current = null;
+    };
+  }, [load]);
+
+  async function handleAtender(id: string) {
+    setChamadas((prev) => prev.filter((c) => c.id !== id));
+    try {
+      await atenderChamada(id);
+    } finally {
+      await load();
+    }
+  }
 
   const mesaUrl = (token: string) => `${origin}/${slug}/mesa/${token}`;
 
@@ -103,6 +166,38 @@ export default function MesasPage() {
         </div>
       </div>
 
+      {chamadas.length > 0 && (
+        <div className="mb-6 rounded-xl border-2 border-red-300 bg-red-50 p-4">
+          <div className="mb-3 flex items-center gap-2 text-red-700">
+            <BellRing className="h-5 w-5 animate-pulse" />
+            <span className="font-bold">
+              {chamadas.length} {chamadas.length === 1 ? 'chamada de garçom' : 'chamadas de garçom'}
+            </span>
+          </div>
+          <div className="flex flex-col gap-2">
+            {chamadas.map((c) => (
+              <div
+                key={c.id}
+                className="flex items-center justify-between gap-3 rounded-lg bg-white px-3 py-2"
+              >
+                <div className="min-w-0">
+                  <span className="font-semibold">Mesa {c.tableNumber}</span>
+                  {c.reason && <span className="ml-2 text-sm text-gray-600">· {c.reason}</span>}
+                  <span className="ml-2 text-xs text-gray-400">{elapsed(c.createdAt)}</span>
+                </div>
+                <Button
+                  size="sm"
+                  onClick={() => handleAtender(c.id)}
+                  className="shrink-0 bg-red-500 text-white hover:bg-red-600"
+                >
+                  Atender
+                </Button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <form onSubmit={handleCreate} className="mb-6 flex max-w-sm gap-2">
         <Input
           value={newNumber}
@@ -126,14 +221,22 @@ export default function MesasPage() {
               <div
                 key={m.id}
                 className={`rounded-xl border p-4 ${
-                  occupied ? 'border-orange-300 bg-orange-50' : 'bg-white'
+                  m.hasPendingCall
+                    ? 'border-red-300 bg-red-50 ring-2 ring-red-300'
+                    : occupied
+                      ? 'border-orange-300 bg-orange-50'
+                      : 'bg-white'
                 }`}
               >
                 <div className="mb-2 flex items-center justify-between">
                   <span className="text-lg font-bold">Mesa {m.number}</span>
-                  <Badge variant={occupied ? 'default' : 'secondary'}>
-                    {occupied ? 'Ocupada' : 'Livre'}
-                  </Badge>
+                  {m.hasPendingCall ? (
+                    <Badge className="animate-pulse bg-red-500 text-white">Chamando</Badge>
+                  ) : (
+                    <Badge variant={occupied ? 'default' : 'secondary'}>
+                      {occupied ? 'Ocupada' : 'Livre'}
+                    </Badge>
+                  )}
                 </div>
 
                 {occupied ? (

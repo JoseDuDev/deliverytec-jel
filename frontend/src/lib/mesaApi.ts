@@ -79,3 +79,18 @@ export async function placeMesaOrder(
   }
   return res.json();
 }
+
+export type CallWaiterResponse = { callId: string; alreadyPending: boolean };
+
+export async function callWaiter(token: string, reason?: string): Promise<CallWaiterResponse> {
+  const res = await fetch(`/bff/mesa/${token}/garcom`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ reason: reason || null }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => null);
+    throw new Error(err?.error || 'Erro ao chamar o garçom');
+  }
+  return res.json();
+}

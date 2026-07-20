@@ -7,6 +7,7 @@ public sealed class DineinDbContext(DbContextOptions<DineinDbContext> options) :
 {
     public DbSet<Table> Tables => Set<Table>();
     public DbSet<TableSession> Sessions => Set<TableSession>();
+    public DbSet<WaiterCall> WaiterCalls => Set<WaiterCall>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -27,6 +28,16 @@ public sealed class DineinDbContext(DbContextOptions<DineinDbContext> options) :
             e.HasKey(s => s.Id);
             e.Property(s => s.Status).HasConversion<string>().HasMaxLength(20);
             e.HasIndex(s => new { s.TableId, s.Status });
+        });
+
+        modelBuilder.Entity<WaiterCall>(e =>
+        {
+            e.HasKey(w => w.Id);
+            e.Property(w => w.TableNumber).HasMaxLength(40);
+            e.Property(w => w.Reason).HasMaxLength(120);
+            e.Property(w => w.Status).HasConversion<string>().HasMaxLength(20);
+            e.HasIndex(w => new { w.EstablishmentId, w.Status });
+            e.HasIndex(w => new { w.TableId, w.Status });
         });
     }
 }

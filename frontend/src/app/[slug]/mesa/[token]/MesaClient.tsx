@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   fetchMesa,
   placeMesaOrder,
+  callWaiter,
   type MesaResponse,
   type MesaProduct,
 } from '@/lib/mesaApi';
@@ -11,8 +12,11 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
+import { Bell } from 'lucide-react';
 
 const brl = (n: number) => `R$ ${n.toFixed(2).replace('.', ',')}`;
+
+const CALL_REASONS = ['Chamar garçom', 'Pedir a conta', 'Talheres / guardanapos', 'Outro'];
 
 type RoundLine = {
   key: string;
@@ -38,6 +42,10 @@ export default function MesaClient({ token }: { token: string }) {
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
   const [sentFlash, setSentFlash] = useState(false);
+
+  const [showCall, setShowCall] = useState(false);
+  const [calling, setCalling] = useState(false);
+  const [callFlash, setCallFlash] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -115,6 +123,25 @@ export default function MesaClient({ token }: { token: string }) {
     }
   }
 
+  async function handleCall(reason?: string) {
+    setShowCall(false);
+    setCalling(true);
+    try {
+      const r = await callWaiter(token, reason);
+      setCallFlash(
+        r.alreadyPending
+          ? 'O garçom já foi chamado — já estamos a caminho! 🙋'
+          : 'Garçom a caminho! 🙋',
+      );
+      setTimeout(() => setCallFlash(null), 4000);
+    } catch (e) {
+      setCallFlash(e instanceof Error ? e.message : 'Erro ao chamar o garçom');
+      setTimeout(() => setCallFlash(null), 4000);
+    } finally {
+      setCalling(false);
+    }
+  }
+
   if (loading) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-gray-50">
@@ -137,8 +164,20 @@ export default function MesaClient({ token }: { token: string }) {
   return (
     <main className="min-h-screen bg-gray-50 pb-28">
       <header className="bg-orange-500 px-4 py-5 text-white">
-        <p className="text-sm/none opacity-90">Mesa {data.tableNumber}</p>
-        <h1 className="mt-1 text-2xl font-bold">{data.establishmentName}</h1>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-sm/none opacity-90">Mesa {data.tableNumber}</p>
+            <h1 className="mt-1 text-2xl font-bold">{data.establishmentName}</h1>
+          </div>
+          <button
+            onClick={() => setShowCall(true)}
+            disabled={calling}
+            className="flex shrink-0 items-center gap-1.5 rounded-full bg-white/20 px-3 py-2 text-sm font-semibold backdrop-blur transition-colors hover:bg-white/30 disabled:opacity-60"
+          >
+            <Bell className="h-4 w-4" />
+            {calling ? 'Chamando…' : 'Garçom'}
+          </button>
+        </div>
       </header>
 
       {!data.isOpen && (
@@ -164,6 +203,12 @@ export default function MesaClient({ token }: { token: string }) {
       {sentFlash && (
         <div className="mx-4 mt-3 rounded-lg bg-green-50 px-4 py-2 text-sm font-medium text-green-700">
           Pedido enviado para a cozinha! 🍳
+        </div>
+      )}
+
+      {callFlash && (
+        <div className="mx-4 mt-3 rounded-lg bg-blue-50 px-4 py-2 text-sm font-medium text-blue-700">
+          {callFlash}
         </div>
       )}
 
@@ -239,6 +284,26 @@ export default function MesaClient({ token }: { token: string }) {
           }}
         />
       )}
+
+      {/* Sheet de chamar garçom */}
+      <Sheet open={showCall} onOpenChange={setShowCall}>
+        <SheetContent side="bottom" className="mx-auto max-w-lg rounded-t-2xl px-6 pb-8">
+          <SheetHeader className="mb-4 text-left">
+            <SheetTitle>Chamar garçom</SheetTitle>
+          </SheetHeader>
+          <div className="flex flex-col gap-2">
+            {CALL_REASONS.map((reason) => (
+              <button
+                key={reason}
+                onClick={() => handleCall(reason)}
+                className="rounded-xl border px-4 py-3 text-left text-sm font-medium text-gray-700 transition-colors hover:border-orange-300 hover:bg-orange-50"
+              >
+                {reason}
+              </button>
+            ))}
+          </div>
+        </SheetContent>
+      </Sheet>
 
       {/* Painel da comanda (conta corrente) */}
       <Sheet open={showComanda} onOpenChange={setShowComanda}>

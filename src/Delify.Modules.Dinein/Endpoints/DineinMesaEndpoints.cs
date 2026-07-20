@@ -1,6 +1,7 @@
 using Delify.Modules.Catalog.Infrastructure;
 using Delify.Modules.Dinein.Domain;
 using Delify.Modules.Dinein.Infrastructure;
+using Delify.Modules.Dinein.Services;
 using Delify.Modules.Orders.Domain;
 using Delify.Modules.Orders.Infrastructure;
 using Delify.Shared.Abstractions;
@@ -69,7 +70,8 @@ internal static class DineinMesaEndpoints
             DineinDbContext db,
             CatalogDbContext catalogDb,
             OrdersDbContext ordersDb,
-            IPainelDashboardNotifier painelNotifier) =>
+            IPainelDashboardNotifier painelNotifier,
+            MesaNotifier mesaNotifier) =>
         {
             if (req.Items is null || req.Items.Count == 0)
                 return Results.BadRequest(new { error = "Adicione ao menos um item ao pedido." });
@@ -127,10 +129,50 @@ internal static class DineinMesaEndpoints
             painelNotifier.Notify(order.TenantId,
                 new PainelOrderEvent(order.Id, "AwaitingConfirmation", DateTimeOffset.UtcNow));
 
+            // Atualiza o painel de mesas (total da comanda) em tempo real.
+            mesaNotifier.Notify(order.TenantId,
+                new MesaEvent("table-update", table.Id, table.Number, null, null, DateTimeOffset.UtcNow));
+
             var comanda = await BuildComandaAsync(session, ordersDb);
             return Results.Ok(new PlaceMesaOrderResponse(order.Id, session.Id, order.Total, comanda));
         })
         .WithName("MesaPlaceOrder")
+        .WithTags("Mesa")
+        .AllowAnonymous();
+
+        // ── Chamar garçom ───────────────────────────────────────────────────
+        app.MapPost("/bff/mesa/{token}/garcom", async (
+            string token,
+            CallWaiterReq? req,
+            DineinDbContext db,
+            MesaNotifier mesaNotifier) =>
+        {
+            var table = await db.Tables
+                .FirstOrDefaultAsync(t => t.QrToken == token);
+            if (table is null)
+                return Results.NotFound(new { error = "Mesa não encontrada." });
+
+            // Dedupe: se já há uma chamada pendente para a mesa, não empilha outra.
+            var pending = await db.WaiterCalls
+                .FirstOrDefaultAsync(w => w.TableId == table.Id && w.Status == WaiterCallStatus.Pending);
+            if (pending is not null)
+                return Results.Ok(new CallWaiterResponse(pending.Id, true));
+
+            var session = await db.Sessions.AsNoTracking()
+                .FirstOrDefaultAsync(s => s.TableId == table.Id && s.Status == SessionStatus.Open);
+
+            var call = WaiterCall.Create(
+                table.TenantId, table.EstablishmentId, table.Id, table.Number,
+                session?.Id, req?.Reason);
+            db.WaiterCalls.Add(call);
+            await db.SaveChangesAsync();
+
+            mesaNotifier.Notify(table.TenantId,
+                new MesaEvent("waiter-call", table.Id, table.Number, call.Id, call.Reason, DateTimeOffset.UtcNow));
+
+            return Results.Ok(new CallWaiterResponse(call.Id, false));
+        })
+        .WithName("MesaCallWaiter")
         .WithTags("Mesa")
         .AllowAnonymous();
 
@@ -170,3 +212,6 @@ internal record MesaResponse(
 internal record MesaOrderItemReq(Guid ProductId, int Quantity, IReadOnlyList<Guid>? ComplementIds);
 internal record PlaceMesaOrderReq(IReadOnlyList<MesaOrderItemReq> Items, string? Note);
 internal record PlaceMesaOrderResponse(Guid OrderId, Guid SessionId, decimal OrderTotal, ComandaDto Comanda);
+
+internal record CallWaiterReq(string? Reason);
+internal record CallWaiterResponse(Guid CallId, bool AlreadyPending);

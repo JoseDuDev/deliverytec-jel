@@ -1,7 +1,11 @@
+using System.IdentityModel.Tokens.Jwt;
 using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json;
 using Delify.Modules.Catalog.Infrastructure;
 using Delify.Modules.Dinein.Domain;
 using Delify.Modules.Dinein.Infrastructure;
+using Delify.Modules.Dinein.Services;
 using Delify.Modules.Orders.Domain;
 using Delify.Modules.Orders.Infrastructure;
 using Delify.Shared.Abstractions;
@@ -9,6 +13,8 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using Microsoft.IdentityModel.Tokens;
 
 namespace Delify.Modules.Dinein.Endpoints;
 
@@ -40,6 +46,12 @@ internal static class DineinPainelEndpoints
             var sessionByTable = openSessions.ToDictionary(s => s.TableId);
             var sessionIds = openSessions.Select(s => s.Id).ToList();
 
+            var pendingCallTableIds = (await db.WaiterCalls
+                .AsNoTracking()
+                .Where(w => w.TenantId == tenant.TenantId && w.Status == WaiterCallStatus.Pending)
+                .Select(w => w.TableId)
+                .ToListAsync()).ToHashSet();
+
             var orderAgg = await ordersDb.Orders
                 .AsNoTracking()
                 .Where(o => o.TableSessionId != null
@@ -64,7 +76,8 @@ internal static class DineinPainelEndpoints
 
                 return new TableResponse(
                     t.Id, t.Number, t.QrToken, t.Status.ToString(),
-                    session?.Id, session?.OpenedAt, orders, total);
+                    session?.Id, session?.OpenedAt, orders, total,
+                    pendingCallTableIds.Contains(t.Id));
             });
 
             return Results.Ok(result);
@@ -95,7 +108,7 @@ internal static class DineinPainelEndpoints
             await db.SaveChangesAsync();
 
             return Results.Created($"/painel/mesas/{table.Id}",
-                new TableResponse(table.Id, table.Number, table.QrToken, table.Status.ToString(), null, null, 0, 0));
+                new TableResponse(table.Id, table.Number, table.QrToken, table.Status.ToString(), null, null, 0, 0, false));
         });
 
         // ── Renomear mesa ───────────────────────────────────────────────────
@@ -111,7 +124,7 @@ internal static class DineinPainelEndpoints
 
             table.Rename(req.Number);
             await db.SaveChangesAsync();
-            return Results.Ok(new TableResponse(table.Id, table.Number, table.QrToken, table.Status.ToString(), null, null, 0, 0));
+            return Results.Ok(new TableResponse(table.Id, table.Number, table.QrToken, table.Status.ToString(), null, null, 0, 0, false));
         });
 
         // ── Regenerar QR token ──────────────────────────────────────────────
@@ -128,7 +141,7 @@ internal static class DineinPainelEndpoints
 
         // ── Liberar mesa (fecha a comanda sem pagamento — override do staff) ─
         group.MapPost("/{id:guid}/liberar", async (
-            Guid id, ITenantContext tenant, DineinDbContext db) =>
+            Guid id, ITenantContext tenant, DineinDbContext db, MesaNotifier mesaNotifier) =>
         {
             var table = await db.Tables.FirstOrDefaultAsync(t => t.Id == id && t.TenantId == tenant.TenantId);
             if (table is null) return Results.NotFound();
@@ -138,8 +151,17 @@ internal static class DineinPainelEndpoints
                 .ToListAsync();
             foreach (var s in sessions) s.Close();
 
+            // Encerra chamadas pendentes da mesa ao liberá-la.
+            var calls = await db.WaiterCalls
+                .Where(w => w.TableId == id && w.Status == WaiterCallStatus.Pending)
+                .ToListAsync();
+            foreach (var c in calls) c.Acknowledge();
+
             table.Vacate();
             await db.SaveChangesAsync();
+
+            mesaNotifier.Notify(tenant.TenantId,
+                new MesaEvent("table-update", table.Id, table.Number, null, null, DateTimeOffset.UtcNow));
             return Results.NoContent();
         });
 
@@ -159,15 +181,124 @@ internal static class DineinPainelEndpoints
             return Results.NoContent();
         });
 
+        // ── Chamadas de garçom pendentes ────────────────────────────────────
+        group.MapGet("/chamadas", async (ITenantContext tenant, DineinDbContext db) =>
+        {
+            var calls = await db.WaiterCalls
+                .AsNoTracking()
+                .Where(w => w.TenantId == tenant.TenantId && w.Status == WaiterCallStatus.Pending)
+                .OrderBy(w => w.CreatedAt)
+                .Select(w => new WaiterCallResponse(w.Id, w.TableId, w.TableNumber, w.Reason, w.CreatedAt))
+                .ToListAsync();
+
+            return Results.Ok(calls);
+        });
+
+        // ── Atender (reconhecer) uma chamada ────────────────────────────────
+        group.MapPost("/chamadas/{id:guid}/atender", async (
+            Guid id, ITenantContext tenant, DineinDbContext db, MesaNotifier mesaNotifier) =>
+        {
+            var call = await db.WaiterCalls
+                .FirstOrDefaultAsync(w => w.Id == id && w.TenantId == tenant.TenantId);
+            if (call is null) return Results.NotFound();
+
+            if (call.Status == WaiterCallStatus.Pending)
+            {
+                call.Acknowledge();
+                await db.SaveChangesAsync();
+                mesaNotifier.Notify(tenant.TenantId,
+                    new MesaEvent("call-resolved", call.TableId, call.TableNumber, call.Id, null, DateTimeOffset.UtcNow));
+            }
+
+            return Results.NoContent();
+        });
+
+        // ── SSE do painel de mesas (chamadas + atualizações) ────────────────
+        app.MapGet("/painel/mesas/stream", async (
+            string? token,
+            MesaNotifier notifier,
+            IConfiguration config,
+            HttpContext http,
+            CancellationToken ct) =>
+        {
+            var tenantId = ValidateToken(token, config);
+            if (tenantId is null) return Results.Unauthorized();
+
+            http.Response.ContentType = "text/event-stream";
+            http.Response.Headers.CacheControl = "no-cache";
+            http.Response.Headers.Append("X-Accel-Buffering", "no");
+
+            var reader = notifier.Subscribe(tenantId.Value);
+
+            try
+            {
+                while (!ct.IsCancellationRequested)
+                {
+                    var waitTask = reader.WaitToReadAsync(ct).AsTask();
+                    var delay = Task.Delay(20_000, ct);
+                    await Task.WhenAny(waitTask, delay);
+
+                    if (ct.IsCancellationRequested) break;
+
+                    if (waitTask.IsCompletedSuccessfully && reader.TryRead(out var evt))
+                    {
+                        var json = JsonSerializer.Serialize(evt, JsonOpts);
+                        await http.Response.WriteAsync($"event: mesa-update\ndata: {json}\n\n", ct);
+                    }
+                    else
+                    {
+                        await http.Response.WriteAsync(": heartbeat\n\n", ct);
+                    }
+
+                    await http.Response.Body.FlushAsync(ct);
+                }
+            }
+            catch (OperationCanceledException) { }
+
+            return Results.Empty;
+        })
+        .AllowAnonymous()
+        .WithTags("Painel");
+
         return app;
     }
+
+    private static readonly JsonSerializerOptions JsonOpts =
+        new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
 
     private static string GenerateToken() =>
         Convert.ToHexString(RandomNumberGenerator.GetBytes(8)).ToLowerInvariant();
 
+    private static Guid? ValidateToken(string? token, IConfiguration config)
+    {
+        if (string.IsNullOrWhiteSpace(token)) return null;
+
+        var jwtKey = config["Jwt:Key"];
+        if (jwtKey is null) return null;
+
+        var handler = new JwtSecurityTokenHandler();
+        try
+        {
+            var principal = handler.ValidateToken(token, new TokenValidationParameters
+            {
+                ValidateIssuerSigningKey = true,
+                IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),
+                ValidateIssuer = false,
+                ValidateAudience = false,
+                ClockSkew = TimeSpan.Zero
+            }, out _);
+
+            var tenantIdClaim = principal.FindFirst("tenant_id")?.Value;
+            return Guid.TryParse(tenantIdClaim, out var id) ? id : null;
+        }
+        catch { return null; }
+    }
+
     private record CreateTableReq(string Number);
     private record RenameTableReq(string Number);
 }
+
+internal record WaiterCallResponse(Guid Id, Guid TableId, string TableNumber, string? Reason, DateTimeOffset CreatedAt);
 
 internal record TableResponse(
     Guid Id,
@@ -177,4 +308,5 @@ internal record TableResponse(
     Guid? SessionId,
     DateTimeOffset? OpenedAt,
     int OrderCount,
-    decimal SessionTotal);
+    decimal SessionTotal,
+    bool HasPendingCall);

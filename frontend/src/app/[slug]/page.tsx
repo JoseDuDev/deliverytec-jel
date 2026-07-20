@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import CategoryNav from '@/components/menu/CategoryNav';
 import ProductCard from '@/components/menu/ProductCard';
 import CartButton from '@/components/cart/CartButton';
+import { EstablishmentLogo } from '@/components/menu/EstablishmentLogo';
 
 export default async function MenuPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
@@ -17,7 +18,10 @@ export default async function MenuPage({ params }: { params: Promise<{ slug: str
   return (
     <main className="min-h-screen bg-gray-50 pb-24">
       <header className="bg-orange-500 px-4 py-6 text-white">
-        <h1 className="text-2xl font-bold">{menu.name}</h1>
+        <div className="flex items-center gap-3">
+          <EstablishmentLogo url={menu.logoUrl} name={menu.name} />
+          <h1 className="text-2xl font-bold">{menu.name}</h1>
+        </div>
       </header>
 
       {!menu.isOpen && (

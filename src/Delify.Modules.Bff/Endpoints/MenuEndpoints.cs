@@ -27,6 +27,7 @@ internal static class MenuEndpoints
                 establishment.Id,
                 establishment.Name,
                 establishment.Slug,
+                establishment.LogoUrl,
                 establishment.IsOpen,
                 establishment.DeliveryFee,
                 establishment.Categories

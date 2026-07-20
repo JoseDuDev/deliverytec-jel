@@ -39,6 +39,7 @@ export type MesaResponse = {
   establishmentId: string;
   establishmentName: string;
   slug: string;
+  logoUrl: string | null;
   isOpen: boolean;
   serviceFeeEnabled: boolean;
   serviceFeePercent: number;

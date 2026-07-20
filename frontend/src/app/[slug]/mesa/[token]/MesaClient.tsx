@@ -27,6 +27,7 @@ import { Separator } from '@/components/ui/separator';
 import { Input } from '@/components/ui/input';
 import { Bell } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
+import { EstablishmentLogo } from '@/components/menu/EstablishmentLogo';
 
 const IS_DEV = process.env.NODE_ENV === 'development';
 
@@ -182,9 +183,12 @@ export default function MesaClient({ token }: { token: string }) {
     <main className="min-h-screen bg-gray-50 pb-28">
       <header className="bg-orange-500 px-4 py-5 text-white">
         <div className="flex items-start justify-between gap-3">
-          <div>
-            <p className="text-sm/none opacity-90">Mesa {data.tableNumber}</p>
-            <h1 className="mt-1 text-2xl font-bold">{data.establishmentName}</h1>
+          <div className="flex items-center gap-3 min-w-0">
+            <EstablishmentLogo url={data.logoUrl} name={data.establishmentName} />
+            <div className="min-w-0">
+              <p className="text-sm/none opacity-90">Mesa {data.tableNumber}</p>
+              <h1 className="mt-1 truncate text-2xl font-bold">{data.establishmentName}</h1>
+            </div>
           </div>
           <button
             onClick={() => setShowCall(true)}

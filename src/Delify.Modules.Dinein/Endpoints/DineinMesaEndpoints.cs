@@ -59,7 +59,7 @@ internal static class DineinMesaEndpoints
 
             return Results.Ok(new MesaResponse(
                 table.Id, table.Number,
-                establishment.Id, establishment.Name, establishment.Slug, establishment.IsOpen,
+                establishment.Id, establishment.Name, establishment.Slug, establishment.LogoUrl, establishment.IsOpen,
                 establishment.ServiceFeeEnabled, establishment.ServiceFeePercent,
                 categories, comanda));
         })
@@ -563,7 +563,7 @@ internal record ComandaItemDto(string ProductName, int Quantity, decimal UnitPri
 internal record ComandaDto(Guid? SessionId, DateTimeOffset? OpenedAt, IReadOnlyList<ComandaItemDto> Items, decimal Total);
 internal record MesaResponse(
     Guid TableId, string TableNumber,
-    Guid EstablishmentId, string EstablishmentName, string Slug, bool IsOpen,
+    Guid EstablishmentId, string EstablishmentName, string Slug, string? LogoUrl, bool IsOpen,
     bool ServiceFeeEnabled, decimal ServiceFeePercent,
     IReadOnlyList<MesaCategoryDto> Categories, ComandaDto Comanda);
 

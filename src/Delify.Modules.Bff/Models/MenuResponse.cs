@@ -4,6 +4,7 @@ public record MenuResponse(
     Guid EstablishmentId,
     string Name,
     string Slug,
+    string? LogoUrl,
     bool IsOpen,
     decimal DeliveryFee,
     IReadOnlyList<MenuCategoryDto> Categories);

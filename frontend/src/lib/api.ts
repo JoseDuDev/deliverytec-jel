@@ -4,6 +4,7 @@ export type MenuResponse = {
   establishmentId: string;
   name: string;
   slug: string;
+  logoUrl: string | null;
   isOpen: boolean;
   deliveryFee: number;
   categories: {

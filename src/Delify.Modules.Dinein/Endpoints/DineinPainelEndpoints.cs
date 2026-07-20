@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text.Json;
 using Delify.Modules.Catalog.Infrastructure;
+using Delify.Modules.Dinein.Application;
 using Delify.Modules.Dinein.Domain;
 using Delify.Modules.Dinein.Infrastructure;
 using Delify.Modules.Dinein.Services;
@@ -138,7 +139,8 @@ internal static class DineinPainelEndpoints
 
         // ── Liberar mesa (fecha a comanda sem pagamento — override do staff) ─
         group.MapPost("/{id:guid}/liberar", async (
-            Guid id, ITenantContext tenant, DineinDbContext db, MesaNotifier mesaNotifier) =>
+            Guid id, ITenantContext tenant, DineinDbContext db, OrdersDbContext ordersDb,
+            MesaNotifier mesaNotifier) =>
         {
             var table = await db.Tables.FirstOrDefaultAsync(t => t.Id == id && t.TenantId == tenant.TenantId);
             if (table is null) return Results.NotFound();
@@ -156,6 +158,9 @@ internal static class DineinPainelEndpoints
 
             table.Vacate();
             await db.SaveChangesAsync();
+
+            // A mesa acabou sem pagar: o que estava na fila não sai mais.
+            await TableRelease.CancelPendingOrdersAsync(ordersDb, sessions.Select(s => s.Id).ToList());
 
             mesaNotifier.Notify(tenant.TenantId,
                 new MesaEvent("table-update", table.Id, table.Number, null, null, DateTimeOffset.UtcNow));

@@ -96,6 +96,14 @@ function KitchenCard({
               🛵 Entrega
             </span>
           )}
+          {order.sessionPaid && (
+            <span
+              className="shrink-0 rounded-md bg-emerald-600 px-2 py-0.5 text-xs font-bold uppercase tracking-wide text-white"
+              title="A mesa já fechou a conta — mas este pedido ainda precisa ser preparado e servido"
+            >
+              💳 Conta paga
+            </span>
+          )}
           <span className="font-mono text-sm font-bold tracking-widest text-muted-foreground truncate">
             #{order.id.slice(0, 6).toUpperCase()}
           </span>

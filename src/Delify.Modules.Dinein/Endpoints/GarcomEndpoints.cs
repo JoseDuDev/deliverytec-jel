@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using System.Text.Json;
 using Delify.Modules.Catalog.Infrastructure;
+using Delify.Modules.Dinein.Application;
 using Delify.Modules.Dinein.Domain;
 using Delify.Modules.Dinein.Infrastructure;
 using Delify.Modules.Dinein.Services;
@@ -199,7 +200,8 @@ internal static class GarcomEndpoints
 
         // ── Liberar mesa (encerra comanda + chamadas) ───────────────────────
         group.MapPost("/mesas/{tableId:guid}/liberar", async (
-            Guid tableId, ITenantContext tenant, DineinDbContext db, MesaNotifier mesaNotifier) =>
+            Guid tableId, ITenantContext tenant, DineinDbContext db, OrdersDbContext ordersDb,
+            MesaNotifier mesaNotifier) =>
         {
             var table = await db.Tables.FirstOrDefaultAsync(t => t.Id == tableId && t.TenantId == tenant.TenantId);
             if (table is null) return Results.NotFound();
@@ -214,6 +216,9 @@ internal static class GarcomEndpoints
 
             table.Vacate();
             await db.SaveChangesAsync();
+
+            // A mesa acabou sem pagar: o que estava na fila não sai mais.
+            await TableRelease.CancelPendingOrdersAsync(ordersDb, sessions.Select(s => s.Id).ToList());
 
             mesaNotifier.Notify(tenant.TenantId,
                 new MesaEvent("table-update", table.Id, table.Number, null, null, DateTimeOffset.UtcNow));

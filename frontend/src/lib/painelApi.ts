@@ -11,6 +11,8 @@ export type OrderData = {
   type: string;
   /** Número da mesa quando type === 'Dinein'; null em delivery */
   tableNumber: string | null;
+  /** Mesa já fechou a conta, mas o pedido ainda não saiu — a comida ainda precisa ser feita */
+  sessionPaid: boolean;
   subtotal: number;
   deliveryFee: number;
   total: number;

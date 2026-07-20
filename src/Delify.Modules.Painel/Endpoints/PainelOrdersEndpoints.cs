@@ -2,6 +2,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
+using Delify.Modules.Dinein.Domain;
 using Delify.Modules.Dinein.Infrastructure;
 using Delify.Modules.Orders.Domain;
 using Delify.Modules.Orders.Infrastructure;
@@ -54,10 +55,10 @@ internal static class PainelOrdersEndpoints
                 .OrderBy(o => o.CreatedAt)
                 .ToListAsync();
 
-            var tableNumbers = await ResolveTableNumbers(
+            var tableInfo = await ResolveTableInfo(
                 dineinDb, orders.Where(o => o.TableSessionId is not null).Select(o => o.TableSessionId!.Value));
 
-            return Results.Ok(orders.Select(o => MapOrder(o, TableNumberOf(o, tableNumbers))));
+            return Results.Ok(orders.Select(o => MapOrder(o, TableInfoOf(o, tableInfo))));
         });
 
         // ── SSE stream ────────────────────────────────────────────────────
@@ -183,18 +184,18 @@ internal static class PainelOrdersEndpoints
         trackingNotifier.Notify(orderId, statusKey, label);
         painelNotifier.Notify(tenantId, new PainelOrderEvent(orderId, order.Status.ToString(), DateTimeOffset.UtcNow));
 
-        var tableNumbers = await ResolveTableNumbers(
+        var tableInfo = await ResolveTableInfo(
             dineinDb, order.TableSessionId is null ? [] : [order.TableSessionId.Value]);
 
-        return Results.Ok(MapOrder(order, TableNumberOf(order, tableNumbers)));
+        return Results.Ok(MapOrder(order, TableInfoOf(order, tableInfo)));
     }
 
-    private static string? TableNumberOf(Order o, IReadOnlyDictionary<Guid, string> tableNumbers) =>
-        o.TableSessionId is not null && tableNumbers.TryGetValue(o.TableSessionId.Value, out var n) ? n : null;
+    private static TableInfo? TableInfoOf(Order o, IReadOnlyDictionary<Guid, TableInfo> bySession) =>
+        o.TableSessionId is not null && bySession.TryGetValue(o.TableSessionId.Value, out var info) ? info : null;
 
     // Order lives in schema `orders`, Table in `dinein` — no FK across them,
     // so the session → table hop is two batched lookups joined in memory.
-    private static async Task<Dictionary<Guid, string>> ResolveTableNumbers(
+    private static async Task<Dictionary<Guid, TableInfo>> ResolveTableInfo(
         DineinDbContext dineinDb, IEnumerable<Guid> sessionIds)
     {
         var ids = sessionIds.Distinct().ToList();
@@ -202,7 +203,7 @@ internal static class PainelOrdersEndpoints
 
         var sessions = await dineinDb.Sessions.AsNoTracking()
             .Where(s => ids.Contains(s.Id))
-            .Select(s => new { s.Id, s.TableId })
+            .Select(s => new { s.Id, s.TableId, s.Status })
             .ToListAsync();
 
         var tableIds = sessions.Select(s => s.TableId).Distinct().ToList();
@@ -210,13 +211,20 @@ internal static class PainelOrdersEndpoints
             .Where(t => tableIds.Contains(t.Id))
             .ToDictionaryAsync(t => t.Id, t => t.Number);
 
+        // Sessão fechada + pedido ainda ativo = a conta foi paga antes da comida
+        // sair. O pedido continua no quadro (a comida ainda precisa ser feita),
+        // mas a cozinha precisa ver que a mesa já acertou.
         return sessions
             .Where(s => tables.ContainsKey(s.TableId))
-            .ToDictionary(s => s.Id, s => tables[s.TableId]);
+            .ToDictionary(
+                s => s.Id,
+                s => new TableInfo(tables[s.TableId], s.Status == SessionStatus.Closed));
     }
 
-    private static OrderResponse MapOrder(Order o, string? tableNumber) =>
-        new(o.Id, o.Status.ToString(), o.Type.ToString(), tableNumber,
+    private readonly record struct TableInfo(string Number, bool SessionClosed);
+
+    private static OrderResponse MapOrder(Order o, TableInfo? table) =>
+        new(o.Id, o.Status.ToString(), o.Type.ToString(), table?.Number, table?.SessionClosed ?? false,
             o.Items.Sum(i => i.Total), o.DeliveryFee, o.Total,
             o.CreatedAt, o.CustomerNote,
             o.Items.Select(i => new OrderItemResponse(i.ProductName, i.Quantity, i.UnitPrice)));
@@ -249,7 +257,7 @@ internal static class PainelOrdersEndpoints
 
 internal record OrderItemResponse(string ProductName, int Quantity, decimal UnitPrice);
 internal record OrderResponse(
-    Guid Id, string Status, string Type, string? TableNumber,
+    Guid Id, string Status, string Type, string? TableNumber, bool SessionPaid,
     decimal Subtotal, decimal DeliveryFee, decimal Total,
     DateTimeOffset CreatedAt, string? CustomerNote,
     IEnumerable<OrderItemResponse> Items);

@@ -63,6 +63,11 @@ function OrderCard({
               🍽 Mesa {order.tableNumber}
             </Badge>
           )}
+          {order.sessionPaid && (
+            <Badge className="bg-emerald-600 hover:bg-emerald-600 text-white">
+              💳 Conta paga
+            </Badge>
+          )}
           <CardTitle className="text-sm font-mono text-muted-foreground">
             #{order.id.slice(0, 8).toUpperCase()}
           </CardTitle>

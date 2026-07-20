@@ -40,9 +40,22 @@ export type MesaResponse = {
   establishmentName: string;
   slug: string;
   isOpen: boolean;
+  serviceFeeEnabled: boolean;
+  serviceFeePercent: number;
   categories: MesaCategory[];
   comanda: Comanda;
 };
+
+export type Pix = { qrCode: string; copyPaste: string; expiresAt: string };
+export type CloseBillResponse = {
+  sessionId: string;
+  subtotal: number;
+  serviceFee: number;
+  total: number;
+  serviceFeeApplied: boolean;
+  pix: Pix;
+};
+export type ContaStatus = { paid: boolean; sessionStatus: string; total: number };
 
 export type PlaceMesaOrderItem = {
   productId: string;
@@ -93,4 +106,31 @@ export async function callWaiter(token: string, reason?: string): Promise<CallWa
     throw new Error(err?.error || 'Erro ao chamar o garçom');
   }
   return res.json();
+}
+
+export async function fecharConta(
+  token: string,
+  data: { cpf: string; name: string; waiveServiceFee: boolean },
+): Promise<CloseBillResponse> {
+  const res = await fetch(`/bff/mesa/${token}/conta`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ cpf: data.cpf, name: data.name, waiveServiceFee: data.waiveServiceFee }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => null);
+    throw new Error(err?.error || 'Erro ao fechar a conta');
+  }
+  return res.json();
+}
+
+export async function getContaStatus(sessionId: string): Promise<ContaStatus> {
+  const res = await fetch(`/bff/conta/${sessionId}/status`, { cache: 'no-store' });
+  if (!res.ok) throw new Error('Erro ao consultar o pagamento');
+  return res.json();
+}
+
+// Apenas em dev: simula a confirmação do PIX da comanda.
+export async function simularPagamentoComanda(sessionId: string): Promise<void> {
+  await fetch(`/bff/dev/simulate-payment-session/${sessionId}`, { method: 'POST' });
 }

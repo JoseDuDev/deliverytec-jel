@@ -10,6 +10,9 @@ public sealed class Establishment : Entity
     public string? Description { get; private set; }
     public bool IsOpen { get; private set; }
     public decimal DeliveryFee { get; private set; }
+    // Taxa de serviço (os 10% do garçom) aplicada na conta da mesa.
+    public bool ServiceFeeEnabled { get; private set; } = true;
+    public decimal ServiceFeePercent { get; private set; } = 10m;
     public ICollection<Category> Categories { get; private set; } = [];
 
     private Establishment() { }
@@ -28,6 +31,13 @@ public sealed class Establishment : Entity
         LogoUrl = logoUrl;
         IsOpen = isOpen;
         DeliveryFee = deliveryFee >= 0 ? deliveryFee : 0;
+        UpdatedAt = DateTimeOffset.UtcNow;
+    }
+
+    public void SetServiceFee(bool enabled, decimal percent)
+    {
+        ServiceFeeEnabled = enabled;
+        ServiceFeePercent = percent >= 0 ? percent : 0;
         UpdatedAt = DateTimeOffset.UtcNow;
     }
 }

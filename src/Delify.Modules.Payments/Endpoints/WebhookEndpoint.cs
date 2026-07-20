@@ -33,7 +33,11 @@ internal static class WebhookEndpoint
             {
                 payment.ConfirmPayment(result.GatewayPaymentId);
                 await db.SaveChangesAsync();
-                await bus.Publish(new PaymentConfirmedIntegrationEvent(payment.OrderId, payment.TenantId));
+
+                if (payment.TableSessionId is Guid sessionId)
+                    await bus.Publish(new SessionPaidIntegrationEvent(sessionId, payment.TenantId));
+                else if (payment.OrderId is Guid orderId)
+                    await bus.Publish(new PaymentConfirmedIntegrationEvent(orderId, payment.TenantId));
             }
 
             return Results.Ok();

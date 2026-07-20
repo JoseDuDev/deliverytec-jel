@@ -21,6 +21,8 @@ public sealed class CatalogDbContext(DbContextOptions<CatalogDbContext> options)
             e.Property(x => x.Slug).HasMaxLength(100);
             e.Property(x => x.Name).HasMaxLength(200);
             e.Property(x => x.DeliveryFee).HasColumnType("numeric(10,2)").HasDefaultValue(0m);
+            e.Property(x => x.ServiceFeeEnabled).HasDefaultValue(true);
+            e.Property(x => x.ServiceFeePercent).HasColumnType("numeric(5,2)").HasDefaultValue(10m);
             e.HasMany(x => x.Categories).WithOne().HasForeignKey(c => c.EstablishmentId);
         });
 

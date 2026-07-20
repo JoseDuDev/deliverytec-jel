@@ -14,6 +14,7 @@ public sealed class PaymentsDbContext(DbContextOptions<PaymentsDbContext> option
         {
             e.HasKey(p => p.Id);
             e.HasIndex(p => p.OrderId);
+            e.HasIndex(p => p.TableSessionId);
             e.Property(p => p.Amount).HasColumnType("numeric(10,2)");
             e.Property(p => p.Status).HasConversion<string>();
         });

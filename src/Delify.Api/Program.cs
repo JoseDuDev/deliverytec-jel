@@ -46,6 +46,7 @@ builder.Services.AddMassTransit(x =>
     x.AddConsumers(typeof(OrdersModule).Assembly);
     x.AddConsumers(typeof(PaymentsModule).Assembly);
     x.AddConsumers(typeof(PainelModule).Assembly);
+    x.AddConsumers(typeof(DineinModule).Assembly);
 
     x.UsingRabbitMq((ctx, cfg) =>
     {

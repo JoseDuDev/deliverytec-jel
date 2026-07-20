@@ -5,14 +5,22 @@ import {
   fetchMesa,
   placeMesaOrder,
   callWaiter,
+  fecharConta,
+  getContaStatus,
+  simularPagamentoComanda,
   type MesaResponse,
   type MesaProduct,
+  type CloseBillResponse,
 } from '@/lib/mesaApi';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
+import { Input } from '@/components/ui/input';
 import { Bell } from 'lucide-react';
+import { QRCodeSVG } from 'qrcode.react';
+
+const IS_DEV = process.env.NODE_ENV === 'development';
 
 const brl = (n: number) => `R$ ${n.toFixed(2).replace('.', ',')}`;
 
@@ -38,6 +46,7 @@ export default function MesaClient({ token }: { token: string }) {
   const [round, setRound] = useState<RoundLine[]>([]);
   const [picking, setPicking] = useState<MesaProduct | null>(null);
   const [showComanda, setShowComanda] = useState(false);
+  const [showBill, setShowBill] = useState(false);
 
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
@@ -330,11 +339,32 @@ export default function MesaClient({ token }: { token: string }) {
             <span>Total parcial</span>
             <span className="text-orange-600">{brl(data.comanda.total)}</span>
           </div>
-          <p className="mt-3 text-xs text-gray-400">
-            Chamar garçom e fechar a conta com pagamento chegam nas próximas etapas.
-          </p>
+          <Button
+            onClick={() => {
+              setShowComanda(false);
+              setShowBill(true);
+            }}
+            disabled={data.comanda.items.length === 0}
+            className="mt-4 w-full rounded-full bg-orange-500 text-white hover:bg-orange-600 disabled:opacity-50"
+          >
+            Fechar conta e pagar
+          </Button>
         </SheetContent>
       </Sheet>
+
+      {showBill && (
+        <FecharContaSheet
+          token={token}
+          subtotal={data.comanda.total}
+          serviceFeeEnabled={data.serviceFeeEnabled}
+          serviceFeePercent={data.serviceFeePercent}
+          onClose={() => setShowBill(false)}
+          onPaid={() => {
+            setShowBill(false);
+            load();
+          }}
+        />
+      )}
     </main>
   );
 }
@@ -420,6 +450,165 @@ function ComplementPicker({
             Adicionar · {brl(unitTotal)}
           </Button>
         </div>
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+function FecharContaSheet({
+  token,
+  subtotal,
+  serviceFeeEnabled,
+  serviceFeePercent,
+  onClose,
+  onPaid,
+}: {
+  token: string;
+  subtotal: number;
+  serviceFeeEnabled: boolean;
+  serviceFeePercent: number;
+  onClose: () => void;
+  onPaid: () => void;
+}) {
+  const [step, setStep] = useState<'form' | 'pix' | 'paid'>('form');
+  const [cpf, setCpf] = useState('');
+  const [name, setName] = useState('');
+  const [waive, setWaive] = useState(false);
+  const [bill, setBill] = useState<CloseBillResponse | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const round2 = (n: number) => Math.round(n * 100) / 100;
+  const serviceFee = serviceFeeEnabled && !waive ? round2((subtotal * serviceFeePercent) / 100) : 0;
+  const total = subtotal + serviceFee;
+
+  useEffect(() => {
+    if (step !== 'pix' || !bill) return;
+    const id = setInterval(async () => {
+      try {
+        const s = await getContaStatus(bill.sessionId);
+        if (s.paid) {
+          clearInterval(id);
+          setStep('paid');
+        }
+      } catch {
+        /* segue tentando */
+      }
+    }, 3000);
+    return () => clearInterval(id);
+  }, [step, bill]);
+
+  async function generate() {
+    if (!cpf.trim() || !name.trim()) {
+      setError('Informe nome e CPF para gerar o PIX.');
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      const r = await fecharConta(token, { cpf: cpf.trim(), name: name.trim(), waiveServiceFee: waive });
+      setBill(r);
+      setStep('pix');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Erro ao fechar a conta');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function copyPix() {
+    if (!bill) return;
+    navigator.clipboard.writeText(bill.pix.copyPaste);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+
+  return (
+    <Sheet open onOpenChange={(open) => !open && onClose()}>
+      <SheetContent side="bottom" className="mx-auto max-w-lg rounded-t-2xl px-6 pb-8">
+        <SheetHeader className="mb-4 text-left">
+          <SheetTitle>{step === 'paid' ? 'Conta paga 🎉' : 'Fechar conta'}</SheetTitle>
+        </SheetHeader>
+
+        {step === 'form' && (
+          <>
+            <div className="mb-4 rounded-xl bg-gray-50 p-3 text-sm">
+              <div className="flex justify-between py-0.5">
+                <span className="text-gray-600">Subtotal</span>
+                <span>{brl(subtotal)}</span>
+              </div>
+              {serviceFeeEnabled && (
+                <label className="flex cursor-pointer items-center justify-between py-0.5">
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      checked={!waive}
+                      onCheckedChange={(v) => setWaive(!v)}
+                      className="border-orange-300 data-[state=checked]:border-orange-500 data-[state=checked]:bg-orange-500"
+                    />
+                    <span className="text-gray-600">Taxa de serviço ({serviceFeePercent}%)</span>
+                  </div>
+                  <span>{brl(serviceFee)}</span>
+                </label>
+              )}
+              <Separator className="my-2" />
+              <div className="flex justify-between py-0.5 font-semibold">
+                <span>Total</span>
+                <span className="text-orange-600">{brl(total)}</span>
+              </div>
+            </div>
+
+            <div className="mb-2">
+              <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Seu nome" />
+            </div>
+            <div className="mb-3">
+              <Input value={cpf} onChange={(e) => setCpf(e.target.value)} placeholder="CPF (para o PIX)" inputMode="numeric" />
+            </div>
+
+            {error && <p className="mb-2 text-sm text-red-600">{error}</p>}
+
+            <Button onClick={generate} disabled={busy} className="w-full rounded-full bg-orange-500 text-white hover:bg-orange-600">
+              {busy ? 'Gerando PIX…' : `Gerar PIX · ${brl(total)}`}
+            </Button>
+          </>
+        )}
+
+        {step === 'pix' && bill && (
+          <div className="flex flex-col items-center gap-4">
+            <p className="text-sm text-muted-foreground">Pague {brl(bill.total)} com PIX</p>
+            <div className="rounded-2xl border-4 border-orange-100 p-3">
+              <QRCodeSVG value={bill.pix.copyPaste} size={190} />
+            </div>
+            <div className="flex w-full gap-2">
+              <Input readOnly value={bill.pix.copyPaste} className="text-xs text-muted-foreground" />
+              <Button onClick={copyPix} className="shrink-0 bg-orange-500 text-white hover:bg-orange-600">
+                {copied ? 'Copiado!' : 'Copiar'}
+              </Button>
+            </div>
+            <p className="text-sm text-muted-foreground">Aguardando confirmação do pagamento…</p>
+            {IS_DEV && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => simularPagamentoComanda(bill.sessionId)}
+                className="w-full border-dashed border-yellow-400 text-yellow-700 hover:bg-yellow-50"
+              >
+                ⚡ Simular pagamento (dev)
+              </Button>
+            )}
+          </div>
+        )}
+
+        {step === 'paid' && (
+          <div className="flex flex-col items-center gap-3 py-4 text-center">
+            <div className="text-5xl">✅</div>
+            <p className="font-semibold text-gray-800">Pagamento confirmado!</p>
+            <p className="text-sm text-muted-foreground">Obrigado pela visita. A mesa foi liberada.</p>
+            <Button onClick={onPaid} className="mt-2 w-full rounded-full bg-orange-500 text-white hover:bg-orange-600">
+              Concluir
+            </Button>
+          </div>
+        )}
       </SheetContent>
     </Sheet>
   );

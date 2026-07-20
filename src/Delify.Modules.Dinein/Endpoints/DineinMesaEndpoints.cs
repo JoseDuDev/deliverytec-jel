@@ -4,6 +4,9 @@ using Delify.Modules.Dinein.Infrastructure;
 using Delify.Modules.Dinein.Services;
 using Delify.Modules.Orders.Domain;
 using Delify.Modules.Orders.Infrastructure;
+using Delify.Modules.Payments.Abstractions;
+using Delify.Modules.Payments.Domain;
+using Delify.Modules.Payments.Infrastructure;
 using Delify.Shared.Abstractions;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -57,6 +60,7 @@ internal static class DineinMesaEndpoints
             return Results.Ok(new MesaResponse(
                 table.Id, table.Number,
                 establishment.Id, establishment.Name, establishment.Slug, establishment.IsOpen,
+                establishment.ServiceFeeEnabled, establishment.ServiceFeePercent,
                 categories, comanda));
         })
         .WithName("MesaGetMenu")
@@ -176,6 +180,79 @@ internal static class DineinMesaEndpoints
         .WithTags("Mesa")
         .AllowAnonymous();
 
+        // ── Fechar a conta (gera PIX da comanda) ────────────────────────────
+        app.MapPost("/bff/mesa/{token}/conta", async (
+            string token,
+            CloseBillReq req,
+            DineinDbContext db,
+            CatalogDbContext catalogDb,
+            OrdersDbContext ordersDb,
+            PaymentsDbContext paymentsDb,
+            IPaymentGateway gateway) =>
+        {
+            var table = await db.Tables.AsNoTracking().FirstOrDefaultAsync(t => t.QrToken == token);
+            if (table is null) return Results.NotFound(new { error = "Mesa não encontrada." });
+
+            var session = await db.Sessions
+                .FirstOrDefaultAsync(s => s.TableId == table.Id && s.Status == SessionStatus.Open);
+            if (session is null) return Results.Conflict(new { error = "Não há comanda aberta nesta mesa." });
+
+            var establishment = await catalogDb.Establishments.AsNoTracking()
+                .FirstOrDefaultAsync(e => e.Id == table.EstablishmentId);
+            if (establishment is null) return Results.NotFound(new { error = "Estabelecimento não encontrado." });
+
+            var comanda = await BuildComandaAsync(session, ordersDb);
+            var subtotal = comanda.Total;
+            if (subtotal <= 0) return Results.Conflict(new { error = "A comanda está vazia." });
+
+            var applyFee = establishment.ServiceFeeEnabled && !req.WaiveServiceFee;
+            var serviceFee = applyFee ? Math.Round(subtotal * establishment.ServiceFeePercent / 100m, 2) : 0m;
+            var total = subtotal + serviceFee;
+
+            // Reaproveita um PIX pendente da mesma comanda, se já houver.
+            var pending = await paymentsDb.Payments
+                .Where(p => p.TableSessionId == session.Id && p.Status != PaymentStatus.Confirmed)
+                .OrderByDescending(p => p.CreatedAt)
+                .FirstOrDefaultAsync();
+
+            if (pending is not null)
+            {
+                return Results.Ok(new CloseBillResponse(
+                    session.Id, subtotal, pending.Amount - subtotal, pending.Amount, applyFee,
+                    new PixDto(pending.PixQrCode ?? "", pending.PixCopyPaste ?? "", pending.CreatedAt.AddHours(24))));
+            }
+
+            var pix = await gateway.CreatePixAsync(new PixPaymentRequest(session.Id, total, req.Cpf ?? "", req.Name ?? ""));
+            var payment = Payment.CreateForSession(session.TenantId, session.Id, total);
+            payment.SetPixData(pix.GatewayId, pix.QrCode, pix.CopyPaste);
+            paymentsDb.Payments.Add(payment);
+            await paymentsDb.SaveChangesAsync();
+
+            return Results.Ok(new CloseBillResponse(
+                session.Id, subtotal, serviceFee, total, applyFee,
+                new PixDto(pix.QrCode, pix.CopyPaste, pix.ExpiresAt)));
+        })
+        .WithName("MesaCloseBill")
+        .WithTags("Mesa")
+        .AllowAnonymous();
+
+        // ── Status do pagamento da comanda (polling) ────────────────────────
+        app.MapGet("/bff/conta/{sessionId:guid}/status", async (
+            Guid sessionId, DineinDbContext db, PaymentsDbContext paymentsDb) =>
+        {
+            var session = await db.Sessions.AsNoTracking().FirstOrDefaultAsync(s => s.Id == sessionId);
+            var payment = await paymentsDb.Payments.AsNoTracking()
+                .Where(p => p.TableSessionId == sessionId)
+                .OrderByDescending(p => p.CreatedAt)
+                .FirstOrDefaultAsync();
+
+            var paid = payment?.Status == PaymentStatus.Confirmed || session?.Status == SessionStatus.Closed;
+            return Results.Ok(new ContaStatusResponse(paid, session?.Status.ToString() ?? "Unknown", payment?.Amount ?? 0));
+        })
+        .WithName("MesaContaStatus")
+        .WithTags("Mesa")
+        .AllowAnonymous();
+
         return app;
     }
 
@@ -207,6 +284,7 @@ internal record ComandaDto(Guid? SessionId, DateTimeOffset? OpenedAt, IReadOnlyL
 internal record MesaResponse(
     Guid TableId, string TableNumber,
     Guid EstablishmentId, string EstablishmentName, string Slug, bool IsOpen,
+    bool ServiceFeeEnabled, decimal ServiceFeePercent,
     IReadOnlyList<MesaCategoryDto> Categories, ComandaDto Comanda);
 
 internal record MesaOrderItemReq(Guid ProductId, int Quantity, IReadOnlyList<Guid>? ComplementIds);
@@ -215,3 +293,8 @@ internal record PlaceMesaOrderResponse(Guid OrderId, Guid SessionId, decimal Ord
 
 internal record CallWaiterReq(string? Reason);
 internal record CallWaiterResponse(Guid CallId, bool AlreadyPending);
+
+internal record CloseBillReq(string? Cpf, string? Name, bool WaiveServiceFee);
+internal record PixDto(string QrCode, string CopyPaste, DateTimeOffset ExpiresAt);
+internal record CloseBillResponse(Guid SessionId, decimal Subtotal, decimal ServiceFee, decimal Total, bool ServiceFeeApplied, PixDto Pix);
+internal record ContaStatusResponse(bool Paid, string SessionStatus, decimal Total);

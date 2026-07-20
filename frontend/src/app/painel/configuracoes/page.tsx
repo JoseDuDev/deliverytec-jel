@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { Checkbox } from '@/components/ui/checkbox';
 
 export default function ConfiguracoesPage() {
   const [data, setData]       = useState<DashboardData | null>(null);
@@ -18,6 +19,8 @@ export default function ConfiguracoesPage() {
   const [description, setDescription] = useState('');
   const [logoUrl, setLogoUrl]         = useState('');
   const [deliveryFee, setDeliveryFee] = useState(0);
+  const [serviceFeeEnabled, setServiceFeeEnabled] = useState(true);
+  const [serviceFeePercent, setServiceFeePercent] = useState(10);
 
   useEffect(() => {
     getDashboard()
@@ -27,6 +30,8 @@ export default function ConfiguracoesPage() {
         setDescription(d.description ?? '');
         setLogoUrl(d.logoUrl ?? '');
         setDeliveryFee(d.deliveryFee ?? 0);
+        setServiceFeeEnabled(d.serviceFeeEnabled ?? true);
+        setServiceFeePercent(d.serviceFeePercent ?? 10);
       })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
@@ -43,6 +48,8 @@ export default function ConfiguracoesPage() {
         description: description || null,
         logoUrl: logoUrl || null,
         deliveryFee,
+        serviceFeeEnabled,
+        serviceFeePercent,
       });
       setData((d) => d && { ...d, ...updated });
       setSaved(true);
@@ -111,6 +118,33 @@ export default function ConfiguracoesPage() {
               />
               <p className="text-xs text-muted-foreground">
                 {deliveryFee === 0 ? 'Entrega grátis — será exibida como gratuita no cardápio.' : `R$ ${deliveryFee.toFixed(2).replace('.', ',')} adicionado ao total do pedido.`}
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <Label>Taxa de serviço (mesa)</Label>
+              <label className="flex cursor-pointer items-center gap-2">
+                <Checkbox
+                  checked={serviceFeeEnabled}
+                  onCheckedChange={(v) => setServiceFeeEnabled(!!v)}
+                  className="border-orange-300 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
+                />
+                <span className="text-sm">Cobrar taxa de serviço na conta da mesa</span>
+              </label>
+              <div className="flex items-center gap-2">
+                <Input
+                  type="number"
+                  min={0}
+                  step={0.5}
+                  value={serviceFeePercent}
+                  onChange={(e) => setServiceFeePercent(Math.max(0, parseFloat(e.target.value) || 0))}
+                  disabled={!serviceFeeEnabled}
+                  className="w-28"
+                />
+                <span className="text-sm text-muted-foreground">% do total</span>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Aplicada no fechamento da conta da mesa. O cliente pode optar por não pagar.
               </p>
             </div>
 

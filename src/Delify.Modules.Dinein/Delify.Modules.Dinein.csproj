@@ -8,6 +8,7 @@
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="MassTransit" Version="8.*" />
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.*" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.*" PrivateAssets="all" />
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="9.*" />
@@ -17,5 +18,6 @@
     <ProjectReference Include="..\Delify.Shared\Delify.Shared.csproj" />
     <ProjectReference Include="..\Delify.Modules.Catalog\Delify.Modules.Catalog.csproj" />
     <ProjectReference Include="..\Delify.Modules.Orders\Delify.Modules.Orders.csproj" />
+    <ProjectReference Include="..\Delify.Modules.Payments\Delify.Modules.Payments.csproj" />
   </ItemGroup>
 </Project>

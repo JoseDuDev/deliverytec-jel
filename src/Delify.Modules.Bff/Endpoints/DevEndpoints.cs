@@ -39,9 +39,39 @@ internal static class DevEndpoints
             payment.ConfirmPayment(payment.GatewayPaymentId ?? $"simulated_{orderId}");
             await db.SaveChangesAsync();
 
-            await bus.Publish(new PaymentConfirmedIntegrationEvent(payment.OrderId, payment.TenantId));
+            await bus.Publish(new PaymentConfirmedIntegrationEvent(orderId, payment.TenantId));
 
             return Results.Ok(new { message = "Pagamento simulado com sucesso.", orderId, status = "Confirmed" });
+        })
+        .AllowAnonymous()
+        .WithTags("Dev");
+
+        // Simula a confirmação do PIX da comanda de uma mesa.
+        app.MapPost("/bff/dev/simulate-payment-session/{sessionId:guid}", async (
+            Guid sessionId,
+            PaymentsDbContext db,
+            IBus bus,
+            IHostEnvironment env) =>
+        {
+            if (!env.IsDevelopment())
+                return Results.NotFound();
+
+            var payment = await db.Payments
+                .Where(p => p.TableSessionId == sessionId)
+                .OrderByDescending(p => p.CreatedAt)
+                .FirstOrDefaultAsync();
+
+            if (payment is null)
+                return Results.NotFound(new { error = "Nenhum pagamento encontrado para esta comanda." });
+
+            if (payment.Status != PaymentStatus.Confirmed)
+            {
+                payment.ConfirmPayment(payment.GatewayPaymentId ?? $"simulated_{sessionId}");
+                await db.SaveChangesAsync();
+                await bus.Publish(new SessionPaidIntegrationEvent(sessionId, payment.TenantId));
+            }
+
+            return Results.Ok(new { message = "Pagamento da comanda simulado.", sessionId, status = "Confirmed" });
         })
         .AllowAnonymous()
         .WithTags("Dev");

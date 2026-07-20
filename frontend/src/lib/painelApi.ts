@@ -47,6 +47,8 @@ export type DashboardData = {
   description: string | null;
   logoUrl: string | null;
   deliveryFee: number;
+  serviceFeeEnabled: boolean;
+  serviceFeePercent: number;
   ordersToday: number;
   revenueToday: number;
 };
@@ -330,6 +332,8 @@ export async function updateEstabelecimento(data: {
   description: string | null;
   logoUrl: string | null;
   deliveryFee: number;
+  serviceFeeEnabled: boolean;
+  serviceFeePercent: number;
 }): Promise<DashboardData> {
   const res = await fetch('/painel-api/me', {
     method: 'PATCH',

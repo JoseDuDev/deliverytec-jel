@@ -38,6 +38,8 @@ internal sealed class PainelQueryService(
             establishment.Description,
             establishment.LogoUrl,
             establishment.DeliveryFee,
+            establishment.ServiceFeeEnabled,
+            establishment.ServiceFeePercent,
             ordersToday,
             revenueToday ?? 0m);
     }
@@ -51,5 +53,7 @@ internal record DashboardResponse(
     string? Description,
     string? LogoUrl,
     decimal DeliveryFee,
+    bool ServiceFeeEnabled,
+    decimal ServiceFeePercent,
     int OrdersToday,
     decimal RevenueToday);

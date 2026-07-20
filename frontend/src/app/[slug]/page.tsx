@@ -15,6 +15,13 @@ export default async function MenuPage({ params }: { params: Promise<{ slug: str
     notFound();
   }
 
+  // Destaques saem no topo E continuam na categoria de origem. Indisponível fica
+  // de fora: carro-chefe pausado em evidência é pior que na lista normal.
+  const destaques = menu.categories
+    .flatMap((c) => c.products)
+    .filter((p) => p.isFeatured && p.isAvailable)
+    .sort((a, b) => a.featuredOrder - b.featuredOrder);
+
   return (
     <main className="min-h-screen bg-gray-50 pb-24">
       <header className="bg-orange-500 px-4 py-6 text-white">
@@ -30,9 +37,33 @@ export default async function MenuPage({ params }: { params: Promise<{ slug: str
         </div>
       )}
 
-      <CategoryNav categories={menu.categories} />
+      <CategoryNav
+        categories={
+          destaques.length > 0
+            ? [{ id: 'destaques', name: '⭐ Destaques' }, ...menu.categories]
+            : menu.categories
+        }
+      />
 
       <div className="mx-auto max-w-2xl px-4 py-4">
+        {destaques.length > 0 && (
+          <section id="cat-destaques" className="mb-8">
+            <h2 className="mb-3 text-lg font-bold text-gray-800">⭐ Destaques</h2>
+            <div className="flex flex-col gap-3">
+              {destaques.map((product) => (
+                <ProductCard
+                  key={`destaque-${product.id}`}
+                  product={product}
+                  establishmentId={menu.establishmentId}
+                  slug={slug}
+                  deliveryFee={menu.deliveryFee}
+                  isOpen={menu.isOpen}
+                />
+              ))}
+            </div>
+          </section>
+        )}
+
         {menu.categories.map((cat) => (
           <section key={cat.id} id={`cat-${cat.id}`} className="mb-8">
             <h2 className="mb-3 text-lg font-bold text-gray-800">{cat.name}</h2>

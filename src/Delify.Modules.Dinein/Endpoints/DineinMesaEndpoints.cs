@@ -51,6 +51,7 @@ internal static class DineinMesaEndpoints
                     c.Products
                         .Select(p => new MesaProductDto(
                             p.Id, p.Name, p.Price, p.Description, p.PhotoUrl,
+                            p.IsAvailable, p.IsFeatured, p.FeaturedOrder,
                             p.Complements
                                 .Select(cp => new MesaComplementDto(cp.Id, cp.Name, cp.AdditionalPrice))
                                 .ToList()))
@@ -557,7 +558,10 @@ internal static class DineinMesaEndpoints
 }
 
 internal record MesaComplementDto(Guid Id, string Name, decimal Price);
-internal record MesaProductDto(Guid Id, string Name, decimal Price, string? Description, string? ImageUrl, IReadOnlyList<MesaComplementDto> Complements);
+internal record MesaProductDto(
+    Guid Id, string Name, decimal Price, string? Description, string? ImageUrl,
+    bool IsAvailable, bool IsFeatured, int FeaturedOrder,
+    IReadOnlyList<MesaComplementDto> Complements);
 internal record MesaCategoryDto(Guid Id, string Name, int Order, IReadOnlyList<MesaProductDto> Products);
 internal record ComandaItemDto(string ProductName, int Quantity, decimal UnitPrice, decimal Total);
 internal record ComandaDto(Guid? SessionId, DateTimeOffset? OpenedAt, IReadOnlyList<ComandaItemDto> Items, decimal Total);

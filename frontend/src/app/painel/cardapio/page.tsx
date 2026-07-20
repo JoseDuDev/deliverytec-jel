@@ -35,6 +35,8 @@ function ProductSheet({ open, onClose, categoryId, editing, onSaved }: ProductSh
   const [photoUrl, setPhotoUrl]   = useState('');
   const [imgError, setImgError]   = useState(false);
   const [isAvailable, setAvail]   = useState(true);
+  const [isFeatured, setFeatured] = useState(false);
+  const [featuredOrder, setFeaturedOrder] = useState('1');
   const [saving, setSaving]       = useState(false);
   const [error, setError]         = useState<string | null>(null);
 
@@ -46,6 +48,8 @@ function ProductSheet({ open, onClose, categoryId, editing, onSaved }: ProductSh
       setPhotoUrl(editing?.photoUrl ?? '');
       setImgError(false);
       setAvail(editing?.isAvailable ?? true);
+      setFeatured(editing?.isFeatured ?? false);
+      setFeaturedOrder(String(editing?.featuredOrder || 1));
       setError(null);
     }
   }, [open, editing]);
@@ -62,6 +66,8 @@ function ProductSheet({ open, onClose, categoryId, editing, onSaved }: ProductSh
           name, price: priceNum, isAvailable,
           description: description || undefined,
           photoUrl: photoUrl || undefined,
+          isFeatured,
+          featuredOrder: isFeatured ? (parseInt(featuredOrder, 10) || 1) : 0,
         });
         onSaved(updated, false);
       } else {
@@ -130,6 +136,31 @@ function ProductSheet({ open, onClose, categoryId, editing, onSaved }: ProductSh
           <div className="flex items-center gap-2">
             <Checkbox id="p-avail" checked={isAvailable} onCheckedChange={(v) => setAvail(Boolean(v))} />
             <Label htmlFor="p-avail">Disponível</Label>
+          </div>
+
+          <div className="flex flex-col gap-1.5 rounded-lg border p-3">
+            <div className="flex items-center gap-2">
+              <Checkbox id="p-featured" checked={isFeatured} onCheckedChange={(v) => setFeatured(Boolean(v))} />
+              <Label htmlFor="p-featured">⭐ Destaque</Label>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Aparece numa seção no topo do cardápio, antes das categorias — e continua
+              também na categoria dele.
+            </p>
+            {isFeatured && (
+              <div className="mt-1 flex items-center gap-2">
+                <Label htmlFor="p-featured-order" className="text-xs">Posição</Label>
+                <Input
+                  id="p-featured-order"
+                  type="number"
+                  min={1}
+                  value={featuredOrder}
+                  onChange={(e) => setFeaturedOrder(e.target.value)}
+                  className="h-8 w-20"
+                />
+                <span className="text-xs text-muted-foreground">menor vem primeiro</span>
+              </div>
+            )}
           </div>
           {error && <p className="text-sm text-destructive">{error}</p>}
           <div className="flex gap-2 pt-2">
@@ -291,10 +322,39 @@ export default function CardapioPage() {
 
   async function handleToggleAvail(prod: ProductData) {
     try {
+      // PATCH substitui o produto inteiro: omitir isFeatured/featuredOrder aqui
+      // apagaria o destaque sem querer, só por pausar a disponibilidade.
       const updated = await updateProduto(prod.id, {
         name: prod.name, price: prod.price, isAvailable: !prod.isAvailable,
         description: prod.description ?? undefined,
         photoUrl: prod.photoUrl ?? undefined,
+        isFeatured: prod.isFeatured,
+        featuredOrder: prod.featuredOrder,
+      });
+      setCategories((prev) => prev.map((c) =>
+        c.id === prod.categoryId
+          ? { ...c, products: c.products.map((p) => p.id === updated.id ? updated : p) }
+          : c));
+    } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : String(e));
+    }
+  }
+
+  async function handleToggleFeatured(prod: ProductData) {
+    try {
+      // Ao promover, joga para o fim da fila de destaques; o lojista reordena
+      // pelo formulário se quiser outra posição.
+      const maiorPosicao = categories
+        .flatMap((c) => c.products)
+        .filter((p) => p.isFeatured && p.id !== prod.id)
+        .reduce((max, p) => Math.max(max, p.featuredOrder), 0);
+
+      const updated = await updateProduto(prod.id, {
+        name: prod.name, price: prod.price, isAvailable: prod.isAvailable,
+        description: prod.description ?? undefined,
+        photoUrl: prod.photoUrl ?? undefined,
+        isFeatured: !prod.isFeatured,
+        featuredOrder: prod.isFeatured ? 0 : maiorPosicao + 1,
       });
       setCategories((prev) => prev.map((c) =>
         c.id === prod.categoryId
@@ -389,6 +449,17 @@ export default function CardapioPage() {
                       )}
                     </div>
                     <span className="text-sm font-semibold shrink-0">{fmt(prod.price)}</span>
+                    <button
+                      onClick={() => handleToggleFeatured(prod)}
+                      title={prod.isFeatured
+                        ? `Destaque (posição ${prod.featuredOrder}) — clique para remover`
+                        : 'Clique para destacar no topo do cardápio'}
+                      className={`shrink-0 text-base leading-none transition-opacity ${
+                        prod.isFeatured ? 'opacity-100' : 'opacity-25 hover:opacity-60'
+                      }`}
+                    >
+                      ⭐
+                    </button>
                     <button
                       onClick={() => handleToggleAvail(prod)}
                       title={prod.isAvailable ? 'Disponível — clique para pausar' : 'Indisponível — clique para ativar'}

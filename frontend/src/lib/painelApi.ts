@@ -29,6 +29,10 @@ export type ProductData = {
   price: number;
   photoUrl: string | null;
   isAvailable: boolean;
+  /** Sai numa seção "Destaques" no topo do cardápio, além da categoria de origem. */
+  isFeatured: boolean;
+  /** Posição dentro dos destaques, definida pelo lojista. */
+  featuredOrder: number;
 };
 
 export type CategoryData = {
@@ -183,7 +187,14 @@ export async function createProduto(
 
 export async function updateProduto(
   id: string,
-  data: { name: string; price: number; isAvailable: boolean; description?: string; photoUrl?: string },
+  // PATCH é substituição completa: quem chama precisa reenviar TUDO, senão o
+  // campo omitido é zerado. É o que faz o toggle de disponibilidade apagar o
+  // destaque se isFeatured/featuredOrder não forem repassados.
+  data: {
+    name: string; price: number; isAvailable: boolean;
+    description?: string; photoUrl?: string;
+    isFeatured?: boolean; featuredOrder?: number;
+  },
 ): Promise<ProductData> {
   const res = await fetch(`/painel-api/cardapio/produtos/${id}`, {
     method: 'PATCH',

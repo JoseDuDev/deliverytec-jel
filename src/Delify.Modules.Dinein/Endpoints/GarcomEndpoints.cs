@@ -96,6 +96,7 @@ internal static class GarcomEndpoints
                     c.Id, c.Name, c.Order,
                     c.Products.Select(p => new MesaProductDto(
                         p.Id, p.Name, p.Price, p.Description, p.PhotoUrl,
+                        p.IsAvailable, p.IsFeatured, p.FeaturedOrder,
                         p.Complements.Select(cp => new MesaComplementDto(cp.Id, cp.Name, cp.AdditionalPrice)).ToList()))
                         .ToList()))
                 .ToList();

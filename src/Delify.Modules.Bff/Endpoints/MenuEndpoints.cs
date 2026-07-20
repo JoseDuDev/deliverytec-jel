@@ -42,6 +42,9 @@ internal static class MenuEndpoints
                                 p.Price,
                                 p.Description,
                                 p.PhotoUrl,
+                                p.IsAvailable,
+                                p.IsFeatured,
+                                p.FeaturedOrder,
                                 p.Complements
                                     .Select(cp => new MenuComplementDto(cp.Id, cp.Name, cp.AdditionalPrice))
                                     .ToList()))

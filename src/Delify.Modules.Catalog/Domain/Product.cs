@@ -10,6 +10,13 @@ public sealed class Product : Entity
     public decimal Price { get; private set; }
     public string? PhotoUrl { get; private set; }
     public bool IsAvailable { get; private set; } = true;
+
+    // Carro-chefe: sai numa seção "Destaques" no topo do cardápio, ANTES das
+    // categorias, e continua aparecendo na categoria de origem. A posição é
+    // definida pelo lojista (merchandising), não pelo nome.
+    public bool IsFeatured { get; private set; }
+    public int FeaturedOrder { get; private set; }
+
     public ICollection<Complement> Complements { get; private set; } = [];
 
     private Product() { }
@@ -31,13 +38,17 @@ public sealed class Product : Entity
         };
     }
 
-    public void Update(string name, string? description, decimal price, string? photoUrl, bool isAvailable)
+    public void Update(
+        string name, string? description, decimal price, string? photoUrl, bool isAvailable,
+        bool isFeatured = false, int featuredOrder = 0)
     {
         Name = name;
         Description = description;
         Price = price;
         PhotoUrl = photoUrl;
         IsAvailable = isAvailable;
+        IsFeatured = isFeatured;
+        FeaturedOrder = isFeatured ? featuredOrder : 0;
         UpdatedAt = DateTimeOffset.UtcNow;
     }
 }

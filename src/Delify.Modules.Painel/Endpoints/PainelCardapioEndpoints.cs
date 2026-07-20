@@ -40,7 +40,8 @@ internal static class PainelCardapioEndpoints
                         .OrderBy(p => p.Name)
                         .Select(p => new ProductResponse(
                             p.Id, p.CategoryId, p.Name, p.Description,
-                            p.Price, p.PhotoUrl, p.IsAvailable))))));
+                            p.Price, p.PhotoUrl, p.IsAvailable,
+                            p.IsFeatured, p.FeaturedOrder))))));
         });
 
         // ── Categorias ──────────────────────────────────────────────────
@@ -106,7 +107,8 @@ internal static class PainelCardapioEndpoints
 
             return Results.Created($"/painel/cardapio/produtos/{product.Id}",
                 new ProductResponse(product.Id, product.CategoryId, product.Name,
-                    product.Description, product.Price, product.PhotoUrl, product.IsAvailable));
+                    product.Description, product.Price, product.PhotoUrl, product.IsAvailable,
+                    product.IsFeatured, product.FeaturedOrder));
         });
 
         group.MapPatch("/produtos/{id:guid}", async (
@@ -117,11 +119,13 @@ internal static class PainelCardapioEndpoints
 
             if (product is null) return Results.NotFound();
 
-            product.Update(req.Name, req.Description, req.Price, req.PhotoUrl, req.IsAvailable);
+            product.Update(req.Name, req.Description, req.Price, req.PhotoUrl, req.IsAvailable,
+                req.IsFeatured, req.FeaturedOrder);
             await db.SaveChangesAsync();
 
             return Results.Ok(new ProductResponse(product.Id, product.CategoryId, product.Name,
-                product.Description, product.Price, product.PhotoUrl, product.IsAvailable));
+                product.Description, product.Price, product.PhotoUrl, product.IsAvailable,
+                product.IsFeatured, product.FeaturedOrder));
         });
 
         group.MapDelete("/produtos/{id:guid}", async (
@@ -143,9 +147,14 @@ internal static class PainelCardapioEndpoints
     private record CreateCategoryReq(string Name, int Order = 0);
     private record UpdateCategoryReq(string Name, int Order, bool IsActive);
     private record CreateProductReq(string Name, decimal Price, string? Description = null, string? PhotoUrl = null);
-    private record UpdateProductReq(string Name, decimal Price, bool IsAvailable, string? Description = null, string? PhotoUrl = null);
+    private record UpdateProductReq(
+        string Name, decimal Price, bool IsAvailable,
+        string? Description = null, string? PhotoUrl = null,
+        bool IsFeatured = false, int FeaturedOrder = 0);
 }
 
-internal record ProductResponse(Guid Id, Guid CategoryId, string Name, string? Description, decimal Price, string? PhotoUrl, bool IsAvailable);
+internal record ProductResponse(
+    Guid Id, Guid CategoryId, string Name, string? Description, decimal Price,
+    string? PhotoUrl, bool IsAvailable, bool IsFeatured, int FeaturedOrder);
 internal record CategoryResponse(Guid Id, Guid EstablishmentId, string Name, int Order, bool IsActive, IEnumerable<ProductResponse> Products);
 internal record CardapioResponse(Guid EstId, IEnumerable<CategoryResponse> Categories);

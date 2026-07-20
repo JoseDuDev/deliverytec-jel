@@ -179,6 +179,13 @@ export default function MesaClient({ token }: { token: string }) {
 
   const comandaCount = data.comanda.items.reduce((s, i) => s + i.quantity, 0);
 
+  // Destaques saem no topo E continuam na categoria de origem. Indisponível fica
+  // de fora: carro-chefe pausado em evidência é pior que na lista normal.
+  const destaques = data.categories
+    .flatMap((c) => c.products)
+    .filter((p) => p.isFeatured && p.isAvailable)
+    .sort((a, b) => a.featuredOrder - b.featuredOrder);
+
   return (
     <main className="min-h-screen bg-gray-50 pb-28">
       <header className="bg-orange-500 px-4 py-5 text-white">
@@ -234,56 +241,43 @@ export default function MesaClient({ token }: { token: string }) {
       )}
 
       <div className="mx-auto max-w-2xl px-4 py-4">
+        {destaques.length > 0 && (
+          <section className="mb-8">
+            <h2 className="mb-3 text-lg font-bold text-gray-800">⭐ Destaques</h2>
+            <div className="flex flex-col gap-3">
+              {destaques.map((product) => (
+                <ProdutoRow
+                  key={`destaque-${product.id}`}
+                  product={product}
+                  isOpen={data.isOpen}
+                  onOpen={() => setPicking(product)}
+                  onQuickAdd={() =>
+                    product.complements.length > 0
+                      ? setPicking(product)
+                      : addLine(product, 1, [])
+                  }
+                />
+              ))}
+            </div>
+          </section>
+        )}
+
         {data.categories.map((cat) => (
           <section key={cat.id} className="mb-8">
             <h2 className="mb-3 text-lg font-bold text-gray-800">{cat.name}</h2>
             <div className="flex flex-col gap-3">
               {cat.products.map((product) => (
-                // Clicar em qualquer lugar do card abre a ficha do prato; o botão
-                // "Adicionar" segue como atalho de adição rápida (stopPropagation).
-                <div
+                <ProdutoRow
                   key={product.id}
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => setPicking(product)}
-                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setPicking(product); } }}
-                  className="flex cursor-pointer items-center justify-between gap-3 rounded-xl bg-white p-3 text-left shadow-sm transition-shadow hover:shadow-md"
-                >
-                  {product.imageUrl && (
-                    <img
-                      key={product.imageUrl}
-                      src={product.imageUrl}
-                      alt={product.name}
-                      loading="lazy"
-                      className="h-16 w-16 shrink-0 rounded-lg object-cover"
-                      onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                    />
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <p className="font-medium text-gray-800">{product.name}</p>
-                    {product.description && (
-                      <p className="line-clamp-2 text-sm text-gray-500">
-                        {product.description}
-                      </p>
-                    )}
-                    <p className="mt-1 text-sm font-semibold text-orange-600">
-                      {brl(product.price)}
-                    </p>
-                  </div>
-                  <Button
-                    size="sm"
-                    disabled={!data.isOpen}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      product.complements.length > 0
-                        ? setPicking(product)
-                        : addLine(product, 1, []);
-                    }}
-                    className="shrink-0 rounded-full bg-orange-500 px-4 text-white hover:bg-orange-600 disabled:opacity-50"
-                  >
-                    Adicionar
-                  </Button>
-                </div>
+                  product={product}
+                  isOpen={data.isOpen}
+                  onOpen={() => setPicking(product)}
+                  onQuickAdd={() =>
+                    product.complements.length > 0
+                      ? setPicking(product)
+                      : addLine(product, 1, [])
+                  }
+                />
               ))}
             </div>
           </section>
@@ -499,6 +493,62 @@ function ComplementPicker({
         </div>
       </SheetContent>
     </Sheet>
+  );
+}
+
+/**
+ * Linha de produto do cardápio da mesa. Extraída porque aparece em dois lugares
+ * — na seção de Destaques e na categoria de origem — e o produto em destaque sai
+ * nos dois.
+ *
+ * Clicar em qualquer lugar abre a ficha do prato; "Adicionar" é o atalho de
+ * adição rápida e não deve propagar o clique para o card.
+ */
+function ProdutoRow({
+  product,
+  isOpen,
+  onOpen,
+  onQuickAdd,
+}: {
+  product: MesaProduct;
+  isOpen: boolean;
+  onOpen: () => void;
+  onQuickAdd: () => void;
+}) {
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onOpen}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(); } }}
+      className="flex cursor-pointer items-center justify-between gap-3 rounded-xl bg-white p-3 text-left shadow-sm transition-shadow hover:shadow-md"
+    >
+      {product.imageUrl && (
+        <img
+          key={product.imageUrl}
+          src={product.imageUrl}
+          alt={product.name}
+          loading="lazy"
+          className="h-16 w-16 shrink-0 rounded-lg object-cover"
+          onError={(e) => { e.currentTarget.style.display = 'none'; }}
+        />
+      )}
+      <div className="min-w-0 flex-1">
+        <p className="font-medium text-gray-800">{product.name}</p>
+        {product.description && (
+          <p className="line-clamp-2 text-sm text-gray-500">{product.description}</p>
+        )}
+        <p className="mt-1 text-sm font-semibold text-orange-600">{brl(product.price)}</p>
+      </div>
+      <Button
+        size="sm"
+        disabled={!isOpen}
+        onClick={(e) => { e.stopPropagation(); onQuickAdd(); }}
+        className="shrink-0 rounded-full bg-orange-500 px-4 text-white hover:bg-orange-600 disabled:opacity-50"
+      >
+        Adicionar
+      </Button>
+    </div>
   );
 }
 

@@ -38,6 +38,9 @@ public sealed class CatalogDbContext(DbContextOptions<CatalogDbContext> options)
             e.HasKey(x => x.Id);
             e.Property(x => x.Price).HasColumnType("numeric(10,2)");
             e.Property(x => x.Name).HasMaxLength(200);
+            // Default explícito para a migration preencher as linhas existentes.
+            e.Property(x => x.IsFeatured).HasDefaultValue(false);
+            e.Property(x => x.FeaturedOrder).HasDefaultValue(0);
             e.HasMany(x => x.Complements).WithOne().HasForeignKey(c => c.ProductId);
         });
 

@@ -21,6 +21,9 @@ public record MenuProductDto(
     decimal Price,
     string? Description,
     string? ImageUrl,
+    bool IsAvailable,
+    bool IsFeatured,
+    int FeaturedOrder,
     IReadOnlyList<MenuComplementDto> Complements);
 
 public record MenuComplementDto(Guid Id, string Name, decimal Price);

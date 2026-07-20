@@ -9,6 +9,9 @@ export type MesaProduct = {
   price: number;
   description: string | null;
   imageUrl: string | null;
+  isAvailable: boolean;
+  isFeatured: boolean;
+  featuredOrder: number;
   complements: MesaComplement[];
 };
 

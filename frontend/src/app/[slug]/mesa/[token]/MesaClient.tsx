@@ -239,7 +239,16 @@ export default function MesaClient({ token }: { token: string }) {
                   key={product.id}
                   className="flex items-center justify-between gap-3 rounded-xl bg-white p-3 shadow-sm"
                 >
-                  <div className="min-w-0">
+                  {product.imageUrl && (
+                    <img
+                      src={product.imageUrl}
+                      alt={product.name}
+                      loading="lazy"
+                      className="h-16 w-16 shrink-0 rounded-lg object-cover"
+                      onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                    />
+                  )}
+                  <div className="min-w-0 flex-1">
                     <p className="font-medium text-gray-800">{product.name}</p>
                     {product.description && (
                       <p className="line-clamp-2 text-sm text-gray-500">

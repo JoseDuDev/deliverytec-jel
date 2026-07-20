@@ -100,7 +100,7 @@ internal static class PainelCardapioEndpoints
 
             if (cat is null) return Results.NotFound();
 
-            var product = Product.Create(tenant.TenantId, id, req.Name, req.Price, req.Description);
+            var product = Product.Create(tenant.TenantId, id, req.Name, req.Price, req.Description, req.PhotoUrl);
             db.Products.Add(product);
             await db.SaveChangesAsync();
 

@@ -7,23 +7,15 @@ const nextConfig: NextConfig = {
   // the webpack pipeline; Turbopack handles the dev/prod JS compilation.
   turbopack: {},
   async rewrites() {
+    // O backend é alcançado por proxy server-side: o navegador chama a própria
+    // origem do frontend e o Next repassa. Localhost no dev; em deploy, aponta
+    // para a URL do backend via BACKEND_URL (ex.: https://delify-api.onrender.com).
+    const backend = (process.env.BACKEND_URL ?? 'http://localhost:7000').replace(/\/$/, '');
     return [
-      {
-        source: '/bff/:path*',
-        destination: 'http://localhost:7000/bff/:path*',
-      },
-      {
-        source: '/admin-api/:path*',
-        destination: 'http://localhost:7000/admin/:path*',
-      },
-      {
-        source: '/painel-api/:path*',
-        destination: 'http://localhost:7000/painel/:path*',
-      },
-      {
-        source: '/garcom-api/:path*',
-        destination: 'http://localhost:7000/garcom/:path*',
-      },
+      { source: '/bff/:path*', destination: `${backend}/bff/:path*` },
+      { source: '/admin-api/:path*', destination: `${backend}/admin/:path*` },
+      { source: '/painel-api/:path*', destination: `${backend}/painel/:path*` },
+      { source: '/garcom-api/:path*', destination: `${backend}/garcom/:path*` },
     ];
   },
 };

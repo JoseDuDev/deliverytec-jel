@@ -29,7 +29,11 @@ import { Bell } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { EstablishmentLogo } from '@/components/menu/EstablishmentLogo';
 
-const IS_DEV = process.env.NODE_ENV === 'development';
+// Mostra os botões de simular pagamento no dev local E no ambiente de demo
+// publicado (onde não há gateway real). NEXT_PUBLIC_DEMO_MODE=true no Vercel.
+const IS_DEV =
+  process.env.NODE_ENV === 'development' ||
+  process.env.NEXT_PUBLIC_DEMO_MODE === 'true';
 
 const brl = (n: number) => `R$ ${n.toFixed(2).replace('.', ',')}`;
 

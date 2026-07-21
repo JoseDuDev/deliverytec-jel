@@ -48,19 +48,31 @@ builder.Services.AddMassTransit(x =>
     x.AddConsumers(typeof(PainelModule).Assembly);
     x.AddConsumers(typeof(DineinModule).Assembly);
 
-    x.UsingRabbitMq((ctx, cfg) =>
+    // Sem broker (ex.: demo de instância única) os eventos rodam in-process —
+    // some a dependência do RabbitMQ. Cai no in-memory quando RabbitMQ:Enabled
+    // é false OU não há host. Setar `RabbitMQ__Enabled=false` na env é o
+    // interruptor do deploy. Mesmo padrão do StubPaymentGateway (Asaas:ApiKey vazio).
+    var rabbitEnabled = builder.Configuration.GetValue("RabbitMQ:Enabled", true);
+    var rabbitHost = builder.Configuration["RabbitMQ:Host"];
+    if (!rabbitEnabled || string.IsNullOrWhiteSpace(rabbitHost))
     {
-        var host = builder.Configuration["RabbitMQ:Host"] ?? "localhost";
-        var vhost = builder.Configuration["RabbitMQ:VirtualHost"] ?? "/";
-        var port = builder.Configuration.GetValue<ushort>("RabbitMQ:Port", 5672);
-
-        cfg.Host(host, port, vhost, h =>
+        x.UsingInMemory((ctx, cfg) => cfg.ConfigureEndpoints(ctx));
+    }
+    else
+    {
+        x.UsingRabbitMq((ctx, cfg) =>
         {
-            h.Username(builder.Configuration["RabbitMQ:Username"] ?? "delify");
-            h.Password(builder.Configuration["RabbitMQ:Password"] ?? "delify");
+            var vhost = builder.Configuration["RabbitMQ:VirtualHost"] ?? "/";
+            var port = builder.Configuration.GetValue<ushort>("RabbitMQ:Port", 5672);
+
+            cfg.Host(rabbitHost, port, vhost, h =>
+            {
+                h.Username(builder.Configuration["RabbitMQ:Username"] ?? "delify");
+                h.Password(builder.Configuration["RabbitMQ:Password"] ?? "delify");
+            });
+            cfg.ConfigureEndpoints(ctx);
         });
-        cfg.ConfigureEndpoints(ctx);
-    });
+    }
 });
 
 builder.Services.AddCors(opts =>

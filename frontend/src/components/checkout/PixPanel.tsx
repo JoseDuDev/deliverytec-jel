@@ -7,7 +7,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 
-const IS_DEV = process.env.NODE_ENV === 'development';
+const IS_DEV =
+  process.env.NODE_ENV === 'development' ||
+  process.env.NEXT_PUBLIC_DEMO_MODE === 'true';
 
 export default function PixPanel({
   orderId,

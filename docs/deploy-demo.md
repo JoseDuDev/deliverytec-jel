@@ -16,7 +16,14 @@ Navegador ──► Vercel (Next.js)  ──proxy──►  Render (.NET 10, Doc
 
 ## O que já está pronto no código
 
+Tudo abaixo foi verificado com Docker local em 22/07/2026 — imagem builda, container sobe
+contra Postgres com as env vars deste runbook (6 migrations aplicam, bus vira `loopback://`,
+`/health` 200) e o seed roda e é idempotente. **Não precisa refazer essa verificação**; se
+algo falhar no deploy, é configuração do Render/Vercel, não o código.
+
 - `Dockerfile` do backend (imagens oficiais .NET 10 — ignora o SDK preview local).
+  Lista os `.csproj` um a um antes do `restore` — **ao adicionar um módulo novo ao
+  `Delify.Api`, adicione o `COPY` correspondente**, senão o build quebra no restore.
 - Transporte in-memory quando `RabbitMQ__Enabled=false`.
 - URL do backend no frontend via `BACKEND_URL` (proxy do Next).
 - Botões de "simular pagamento" aparecem com `NEXT_PUBLIC_DEMO_MODE=true`.
@@ -35,17 +42,37 @@ Todas com login por GitHub. (Não crio contas por você.)
 2. Converta para o formato Npgsql (o app não aceita a URL `postgresql://` crua):
 
    ```
-   Host=ep-xxx-xxx.sa-east-1.aws.neon.tech;Database=neondb;Username=xxx;Password=xxx;SSL Mode=Require;Trust Server Certificate=true
+   Host=ep-xxx-xxx.aws.neon.tech;Database=neondb;Username=xxx;Password=xxx;SslMode=Require;TrustServerCertificate=true
    ```
 
-   **`SSL Mode=Require` é obrigatório** — o Neon recusa conexão sem TLS.
+   **`SslMode=Require` é obrigatório** — o Neon recusa conexão sem TLS. (O Npgsql
+   também aceita `SSL Mode` / `Trust Server Certificate` com espaços; a grafia sem
+   espaços evita problema ao colar em campos que fazem parsing próprio.)
+
+3. Use o **host direto, não o "pooler host"**. O pooler é PgBouncer em modo
+   *transaction*, e o app roda `MigrateAsync()` no startup — DDL em transação com
+   PgBouncer quebra de formas difíceis de diagnosticar. Um container sempre ligado,
+   com o pool do Npgsql na frente, não precisa do pooler.
 
 O schema é criado sozinho: o `Program.cs` roda `MigrateAsync()` no start.
 
 ## Passo 2 — Backend (Render)
 
 1. New → **Web Service** → conecte o repo → **Runtime: Docker**.
-   Dockerfile path: `src/Delify.Api/Dockerfile`. Docker context: raiz do repo (`.`).
+
+   Em Settings → Build & Deploy:
+
+   | Campo | Valor |
+   |---|---|
+   | Dockerfile Path | `./src/Delify.Api/Dockerfile` |
+   | Docker Build Context Directory | `.` |
+
+   **O `./` na frente importa** — sem ele o Render ignora o caminho, procura um
+   `Dockerfile` na raiz e falha com `failed to read dockerfile: no such file or
+   directory` (o log mostra `transferring dockerfile: 2B`, sinal de que não achou nada).
+   O contexto precisa ser a raiz: o Dockerfile faz `COPY ["src/Delify.Api/...]` a
+   partir dela.
+
 2. Anote a URL que o Render atribui (ex.: `https://delify-api.onrender.com`).
 3. Environment → adicione:
 
@@ -58,7 +85,17 @@ O schema é criado sozinho: o `Program.cs` roda `MigrateAsync()` no start.
    | `Dev__PublicApiUrl` | *(a própria URL do Render)* | O checkout de cartão redireciona o cliente para `${essa URL}/bff/dev/checkout/...`; sem isso vai para localhost e quebra |
    | `Jwt__Key` | *(uma frase secreta de 32+ caracteres)* | O default é um placeholder |
 
-4. Deploy. O primeiro build leva alguns minutos (restore + publish .NET).
+4. **Confirme que as 6 aparecem na aba Environment e clique em Save Changes.** O
+   Render só aplica no deploy seguinte (salvar já dispara um). Duas armadilhas:
+
+   - `ConnectionStrings__Delify` tem **dois underscores**. Com um só, a variável é
+     ignorada em silêncio e o app cai no default do `appsettings.json`
+     (`Host=localhost;Port=5435`) — o sintoma é `SocketException (111): Connection
+     refused` em `127.0.0.1:5435` durante o `MigrateAsync`, seguido de
+     `Exited with status 139`. Não é erro de código nem do Neon: é a env var faltando.
+   - O valor não pode estar entre aspas — o Npgsql leria o `"` como parte do host.
+
+5. Deploy. O primeiro build leva alguns minutos (restore + publish .NET).
 
 ## Passo 3 — Frontend (Vercel)
 
@@ -97,8 +134,9 @@ Troque no `scripts/seed-demo.mjs` se for deixar público por muito tempo.
 
 ## Ressalvas (ler antes de apresentar)
 
-1. **Cold start do Render.** O tier grátis dorme após 15 min sem acesso e leva ~1 min
-   para acordar. **Abra a URL 1 minuto antes de apresentar** para esquentar.
+1. **Cold start do Render — e do Neon.** O tier grátis do Render dorme após 15 min sem
+   acesso e leva ~1 min para acordar; o Neon free suspende o compute após ~5 min ocioso.
+   Os dois somam. **Abra a URL 1 minuto antes de apresentar** para esquentar.
 2. **Tempo real via proxy (SSE).** As telas ao vivo por *polling* — status da conta,
    divisão — são robustas. As por *SSE* — quadro da cozinha, feed de chamadas do garçom —
    passam pelo proxy Vercel→Render e **podem não fazer streaming suave** (buffer/timeout do

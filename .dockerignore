@@ -1,0 +1,16 @@
+# Contexto do build da imagem do backend (src/Delify.Api/Dockerfile).
+# Só o código .NET importa aqui — o resto é peso morto no upload do contexto.
+**/bin
+**/obj
+**/node_modules
+**/.next
+.git
+.github
+.vs
+.claude
+frontend
+tests
+docs
+scripts
+*.md
+docker-compose*.yml

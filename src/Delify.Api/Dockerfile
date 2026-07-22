@@ -8,6 +8,10 @@ COPY ["src/Delify.Modules.Catalog/Delify.Modules.Catalog.csproj", "src/Delify.Mo
 COPY ["src/Delify.Modules.Orders/Delify.Modules.Orders.csproj", "src/Delify.Modules.Orders/"]
 COPY ["src/Delify.Modules.Payments/Delify.Modules.Payments.csproj", "src/Delify.Modules.Payments/"]
 COPY ["src/Delify.Modules.Delivery/Delify.Modules.Delivery.csproj", "src/Delify.Modules.Delivery/"]
+COPY ["src/Delify.Modules.Bff/Delify.Modules.Bff.csproj", "src/Delify.Modules.Bff/"]
+COPY ["src/Delify.Modules.Admin/Delify.Modules.Admin.csproj", "src/Delify.Modules.Admin/"]
+COPY ["src/Delify.Modules.Painel/Delify.Modules.Painel.csproj", "src/Delify.Modules.Painel/"]
+COPY ["src/Delify.Modules.Dinein/Delify.Modules.Dinein.csproj", "src/Delify.Modules.Dinein/"]
 
 RUN dotnet restore "src/Delify.Api/Delify.Api.csproj"
 
